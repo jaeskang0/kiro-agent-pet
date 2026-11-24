@@ -1,12 +1,12 @@
-# Kiro Pet
+# Kiroling
 
-An animated desktop companion for Kiro IDE and Kiro CLI V3. It watches each native session automatically and shows Needs input, Blocked/error, unread Done, Working, or Idle. No Kiro hooks or manual workspace connection are required.
+An unofficial animated desktop companion for Kiro IDE and Kiro CLI V3. It watches each native session automatically and shows Needs input, Blocked/error, unread Done, Working, or Idle. No Kiro hooks or manual workspace connection are required. Kiroling is an independent project and is not affiliated with Kiro or AWS.
 
-Kiro Pet is written in C# with Avalonia. Windows has been tested. Avalonia also runs on macOS and Linux, but overlay behavior, shortcuts, application focus, and native session compatibility on those systems still need verification.
+Kiroling is written in C# with Avalonia. Windows has been tested. Avalonia also runs on macOS and Linux, but overlay behavior, shortcuts, application focus, and native session compatibility on those systems still need verification.
 
 ## Install on Windows
 
-Download the portable Windows ZIP from a release or the latest successful GitHub Actions build. Extract it to a temporary folder and run:
+Download [kiroling-0.3.0-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.0/kiroling-0.3.0-windows.zip) from the [Kiroling v0.3.0 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.0). Extract it, open a terminal in the extracted folder, and run:
 
 ```powershell
 .\kiro-pet.exe install
@@ -19,6 +19,8 @@ kiro-pet start
 ```
 
 Installation and updates are per-user and do not need administrator rights. To update, extract a newer package and run its `kiro-pet.exe install` command. A graphical installer and automatic update checks are not available yet.
+
+Kiroling uses the `kiro-pet` command and `KiroPet` data folder in this version to preserve compatibility with existing installations.
 
 ## Use it
 
@@ -68,4 +70,4 @@ The [architecture notes](docs/architecture.md) explain ownership of session stat
 
 ## License
 
-Kiro Pet's code and original Spark artwork use the [MIT license](LICENSE). Imported artwork keeps its original license. See [third-party notices](THIRD-PARTY.md).
+Kiroling's code and original Spark artwork use the [MIT license](LICENSE). Imported artwork keeps its original license. See [third-party notices](THIRD-PARTY.md).

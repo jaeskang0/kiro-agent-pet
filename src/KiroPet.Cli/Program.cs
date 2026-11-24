@@ -77,7 +77,7 @@ try
             break;
         default:
             Console.WriteLine("""
-                Kiro Pet
+                Kiroling
                   kiro-pet install|uninstall
                   kiro-pet start|stop|show|hide|settings|status
                   kiro-pet select <name-or-key>
@@ -98,7 +98,7 @@ catch (Exception error)
 
 static async Task<string> Start()
 {
-    if (PetStore.Running() != null) return "Kiro Pet is already running.";
+    if (PetStore.Running() != null) return "Kiroling is already running.";
     string executable = Environment.GetEnvironmentVariable("KIRO_PET_DESKTOP") ??
         Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "KiroPet.Desktop.exe" : "KiroPet.Desktop");
     if (!File.Exists(executable)) throw new FileNotFoundException("Desktop executable not found. Use an installed build, or set KIRO_PET_DESKTOP for development.", executable);
@@ -108,10 +108,10 @@ static async Task<string> Start()
     var deadline = DateTime.UtcNow.AddSeconds(30);
     while (DateTime.UtcNow < deadline)
     {
-        if (PetStore.Running() != null) return "Kiro Pet started.";
+        if (PetStore.Running() != null) return "Kiroling started.";
         if (process.HasExited)
             throw new InvalidOperationException("Desktop process exited during startup. " + await startupError);
         await Task.Delay(100);
     }
-    throw new TimeoutException("Kiro Pet did not start. Check the app log in " + PetPaths.Data);
+    throw new TimeoutException("Kiroling did not start. Check the app log in " + PetPaths.Data);
 }

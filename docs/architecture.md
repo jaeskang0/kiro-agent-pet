@@ -1,6 +1,6 @@
 # Application structure
 
-Kiro Pet uses C# and Avalonia. The PowerShell prototype is kept outside this repository as a local reference.
+Kiroling uses C# and Avalonia. The PowerShell prototype is kept outside this repository as a local reference.
 
 The shared core owns native session discovery, result priority, persisted settings, acknowledgements, the command protocol, and per-user installation. It does not depend on Avalonia. The desktop app owns sprites, frame pacing, speech bubbles, menus, and panels. The console app provides the `kiro-pet` commands and starts or controls the desktop process.
 

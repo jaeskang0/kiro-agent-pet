@@ -15,7 +15,7 @@ public sealed class WindowsHotkey : IDisposable
         _action = action;
         _procedure = Procedure;
         if (!OperatingSystem.IsWindows()) return;
-        _thread = new Thread(Run) { IsBackground = true, Name = "Kiro Pet shortcut" };
+        _thread = new Thread(Run) { IsBackground = true, Name = "Kiroling shortcut" };
         _thread.Start();
     }
 

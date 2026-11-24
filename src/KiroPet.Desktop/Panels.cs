@@ -54,7 +54,7 @@ public sealed partial class PetWindow
     private void ShowSettings()
     {
         if (_settingsWindow != null) { _settingsWindow.Activate(); return; }
-        _settingsWindow = Panel("Kiro Pet settings", 550, 720);
+        _settingsWindow = Panel("Kiroling settings", 550, 720);
         var panel = new StackPanel { Margin = new Thickness(22) };
         _settingsWindow.Content = new ScrollViewer { Content = panel };
         Text(panel, $"Animation for {_art.Pet.DisplayName}", true);
@@ -86,7 +86,7 @@ public sealed partial class PetWindow
         var motion = new CheckBox { Content = "Reduced motion (static character)", IsChecked = _settings.ReducedMotion, Margin = new Thickness(0, 12, 0, 10) };
         motion.Click += (_, _) => { _settings.ReducedMotion = motion.IsChecked == true; ApplySettings(); };
         panel.Children.Add(motion);
-        var startup = new CheckBox { Content = "Start Kiro Pet at sign-in", IsChecked = Startup.Enabled, IsEnabled = OperatingSystem.IsWindows(), Margin = new Thickness(0, 0, 0, 10) };
+        var startup = new CheckBox { Content = "Start Kiroling at sign-in", IsChecked = Startup.Enabled, IsEnabled = OperatingSystem.IsWindows(), Margin = new Thickness(0, 0, 0, 10) };
         startup.Click += (_, _) => Guard(() => Startup.Set(startup.IsChecked == true ? "on" : "off"));
         panel.Children.Add(startup);
         Text(panel, "Actions by status", true);
@@ -166,7 +166,7 @@ public sealed partial class PetWindow
     private void ShowSessions()
     {
         if (_sessionsWindow != null) { _sessionsWindow.Activate(); return; }
-        _sessionsWindow = Panel("Kiro Pet sessions", 580, 440);
+        _sessionsWindow = Panel("Kiroling sessions", 580, 440);
         var panel = new DockPanel { Margin = new Thickness(18) };
         _sessionHealth = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
         DockPanel.SetDock(_sessionHealth, Dock.Top);

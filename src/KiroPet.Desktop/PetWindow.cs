@@ -43,7 +43,7 @@ public sealed partial class PetWindow : Window
 
     public PetWindow()
     {
-        Title = "Kiro Pet";
+        Title = "Kiroling";
         Width = 176; Height = 222;
         CanResize = false; ShowInTaskbar = false; Topmost = true;
         SystemDecorations = SystemDecorations.None;
@@ -230,7 +230,7 @@ public sealed partial class PetWindow : Window
             Item("Sessions...", ShowSessions),
             Item("Connection health...", () => Message("Connection health", string.Join("\n", _snapshot.Health))),
             Item("Play all animations", () => Preview(_art.Clips.Keys)),
-            Item("Quit Kiro Pet", Close)
+            Item("Quit Kiroling", Close)
         };
         ContextMenu = menu;
     }
@@ -276,7 +276,7 @@ public sealed partial class PetWindow : Window
                     case "import": ChangePet(PetArtwork.Import(request.Value).Key); break;
                     default: throw new ArgumentException("Unknown pet command.");
                 }
-                reply = new PetReply(true, "Kiro Pet: " + request.Command);
+                reply = new PetReply(true, "Kiroling: " + request.Command);
             }
             catch (Exception error) { reply = new PetReply(false, "", error.Message); }
             PetStore.WriteFile(Path.Combine(directory, Path.GetFileNameWithoutExtension(file) + ".reply"), reply);
@@ -286,11 +286,11 @@ public sealed partial class PetWindow : Window
         await Task.CompletedTask;
     }
 
-    private void Guard(Action action) { try { action(); } catch (Exception error) { Message("Kiro Pet", error.Message); } }
+    private void Guard(Action action) { try { action(); } catch (Exception error) { Message("Kiroling", error.Message); } }
 
     private void OpenWorkspace(NativeSession? session)
     {
-        if (session?.Source == "cli") { Message("Kiro Pet", "Return to your CLI terminal to review this session. Use Sessions to mark its result checked."); return; }
+        if (session?.Source == "cli") { Message("Kiroling", "Return to your CLI terminal to review this session. Use Sessions to mark its result checked."); return; }
         Guard(() =>
         {
             var start = new ProcessStartInfo { UseShellExecute = true };
