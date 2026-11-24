@@ -9,6 +9,19 @@ Environment.SetEnvironmentVariable("KIRO_PET_HOME", Path.Combine(temporary, "dat
 NativeReader? reader = null;
 try
 {
+    var primary = new DisplayArea(0, 0, 1920, 1152, 1, true);
+    Assert(PetPosition.Restore(734, 1905, 176, 222, [primary]) == new DesktopPoint(1720, 906),
+        "Saved position on a removed monitor was not recovered.");
+    Assert(PetPosition.Restore(734, 1905, 176, 222, [primary, new(0, 1200, 1920, 1152, 1)]) == new DesktopPoint(734, 1905),
+        "Position on a connected secondary monitor changed.");
+    Assert(PetPosition.Restore(-1000, 200, 176, 222, [primary, new(-1920, 0, 1920, 1080, 1.5)]) == new DesktopPoint(-1500, 300),
+        "Secondary display scaling or negative coordinates were lost.");
+    Assert(PetPosition.Restore(1900, 1100, 176, 222, [primary]) == new DesktopPoint(1744, 930),
+        "Partially off-screen pet was not moved fully onto its display.");
+    Assert(PetPosition.Restore(double.NaN, 200, 176, 222, [primary]) == new DesktopPoint(1720, 906),
+        "Invalid coordinates did not recover.");
+    Console.WriteLine("Monitor layout and saved position PASS");
+
     Directory.CreateDirectory(PetPaths.Data);
     File.WriteAllText(PetPaths.InData("settings.json"), """{"speed":0.2,"duration":45,"reducedMotion":false,"pets":{"usagi":{"blocked":["worry"]}}}""");
     var settings = PetStore.Settings();

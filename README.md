@@ -6,7 +6,7 @@ Kiroling is written in C# with Avalonia. Windows has been tested. Avalonia also 
 
 ## Run on Windows
 
-1. Download [kiroling-0.3.0-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.0/kiroling-0.3.0-windows.zip) from the [Kiroling v0.3.0 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.0).
+1. Download [kiroling-0.3.1-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.1/kiroling-0.3.1-windows.zip) from the [Kiroling v0.3.1 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.1).
 2. Extract the ZIP.
 3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
 

@@ -86,11 +86,12 @@ public sealed partial class PetWindow : Window
         _commands.Tick += async (_, _) => await ReceiveCommands();
         Closed += (_, _) =>
         {
+            _positionReady = false;
+            Screens.Changed -= OnScreensChanged;
             _status.Stop(); _animation.Stop(); _commands.Stop();
             _hotkey?.Dispose();
             _reader.Dispose(); _art.Dispose();
             _settingsWindow?.Close(); _sessionsWindow?.Close();
-            SavePosition();
             string running = PetPaths.InData("running.json");
             if (File.Exists(running)) File.Delete(running);
         };
@@ -98,6 +99,8 @@ public sealed partial class PetWindow : Window
         {
             RestorePosition();
             _positionReady = true;
+            SavePosition();
+            Screens.Changed += OnScreensChanged;
             _hotkey = new WindowsHotkey(() => Dispatcher.UIThread.Post(() => { Show(); ShowSessions(); }));
         };
         ChangePet(PetStore.Read("selected-pet.json", new Selection()).Key, false);
@@ -306,13 +309,17 @@ public sealed partial class PetWindow : Window
     private void RestorePosition()
     {
         var saved = PetStore.Read<Dictionary<string, double>>("position.json", new());
-        var screen = Screens.Primary;
-        double scale = screen?.Scaling ?? 1;
-        var area = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-        Position = saved.TryGetValue("left", out var x) && saved.TryGetValue("top", out var y)
-            ? new PixelPoint((int)(x * scale), (int)(y * scale))
-            : new PixelPoint(area.Right - (int)(Width * scale) - 24, area.Bottom - (int)(Height * scale) - 24);
+        var displays = Screens.All.Select(screen => new DisplayArea(
+            screen.WorkingArea.X, screen.WorkingArea.Y, screen.WorkingArea.Width, screen.WorkingArea.Height,
+            screen.Scaling, screen.IsPrimary)).ToArray();
+        var restored = PetPosition.Restore(
+            saved.TryGetValue("left", out var x) ? x : null,
+            saved.TryGetValue("top", out var y) ? y : null, Width, Height, displays);
+        Position = new PixelPoint(restored.X, restored.Y);
     }
+
+    private void OnScreensChanged(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(() => { if (_positionReady) RestorePosition(); });
 
     private void SavePosition()
     {
