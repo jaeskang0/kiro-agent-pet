@@ -4,8 +4,8 @@ Kiro Pet's source code and original Spark artwork are licensed under the [MIT li
 
 Users can import their own Codex pet packs. Imported artwork stays in the user's local data folder and is not included in release builds. Each pack retains its original licensing terms. Usagi is not bundled because its upstream repository has no redistribution license.
 
-Pet imports use Pillow, licensed under the HPND license. This development package declares Pillow as a dependency instead of bundling it.
+The desktop interface uses Avalonia. Sprite decoding and conversion use SkiaSharp through Avalonia. These packages and the bundled .NET runtime retain their own licenses.
 
-The renderer and importer were adapted from the user's existing local Herdr desktop pet project. Kiro Pet does not require Herdr to run.
+The status reader and animation behavior were adapted from the user's existing local pet prototype. Kiro Pet does not require Herdr or PowerShell to run.
 
 The MIT license does not change the licenses of imported artwork or third-party dependencies.

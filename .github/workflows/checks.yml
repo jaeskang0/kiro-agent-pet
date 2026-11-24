@@ -12,19 +12,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-dotnet@v4
         with:
-          python-version: '3.12'
-      - name: Install pet import dependency
-        run: python -m pip install -r requirements.txt
-      - name: Verify native status
-        shell: pwsh
-        run: ./Verify-NativeSessions.ps1
-      - name: Verify hook migration
-        shell: pwsh
-        run: ./Verify-HookMigration.ps1
-      - name: Verify pet imports
-        run: python Verify-Imports.py
-      - name: Build development ZIP
-        shell: pwsh
-        run: ./Build-Package.ps1
+          dotnet-version: '10.0.x'
+      - name: Build C# application
+        run: dotnet build KiroPet.slnx -c Release
+      - name: Verify compatibility and native sessions
+        run: dotnet run --project tests/KiroPet.Checks -c Release --no-build
+      - name: Publish Windows desktop
+        run: dotnet publish src/KiroPet.Desktop -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/desktop
+      - name: Publish Windows commands
+        run: dotnet publish src/KiroPet.Cli -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/cli
+      - name: Package portable Windows build
+        run: dotnet run --project tools/KiroPet.Package -c Release --no-build -- artifacts/publish artifacts/kiro-pet-0.3.0-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kiro-pet-windows
+          path: artifacts/kiro-pet-0.3.0-windows.zip*

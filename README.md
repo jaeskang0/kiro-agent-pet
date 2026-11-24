@@ -1,112 +1,71 @@
-# Kiro Pet for Windows
+# Kiro Pet
 
-An independent desktop companion for Kiro IDE and Kiro CLI V3. It automatically discovers native sessions across workspaces, including multiple chats in the same project. Herdr is not required.
+An animated desktop companion for Kiro IDE and Kiro CLI V3. It watches each native session automatically and shows Needs input, Blocked/error, unread Done, Working, or Idle. No Kiro hooks or manual workspace connection are required.
 
-This is a development build. It requires PowerShell 7.4 or later. Python and Pillow are required only for importing pet packs. A standalone Windows installer and automatic updates are not available yet.
+Kiro Pet is written in C# with Avalonia. Windows has been tested. Avalonia also runs on macOS and Linux, but overlay behavior, shortcuts, application focus, and native session compatibility on those systems still need verification.
 
-Source repository: [jaeskang0/kiro-pet](https://github.com/jaeskang0/kiro-pet).
+## Install on Windows
 
-## Install and start
-
-Keep the extracted project folder in a permanent location. Run:
+Download the portable Windows ZIP from a release or the latest successful GitHub Actions build. Extract it to a temporary folder and run:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1
+.\kiro-pet.exe install
 ```
 
-Open a new terminal, then run:
+The command copies the app to `%LOCALAPPDATA%\Programs\KiroPet`, adds `kiro-pet` to your user PATH, and keeps imported pets and settings in `%LOCALAPPDATA%\KiroPet`. Open a new terminal, then run:
 
 ```powershell
 kiro-pet start
 ```
 
-The pet discovers Kiro IDE and CLI V3 automatically. No workspace hook installation, manual connection command, or extension is required. It can recover an already-running turn when it starts.
+Installation and updates are per-user and do not need administrator rights. To update, extract a newer package and run its `kiro-pet.exe install` command. A graphical installer and automatic update checks are not available yet.
 
-For upgrades from the hook-based build, `Install.ps1` backs up and removes the pet's owned hooks. Kiro may retain old hooks in an existing chat until that chat reloads its hooks; open a new chat to stop those cached invocations.
+## Use it
 
-The pet starts with Spark. Right-click to import a character, select an installed character, open Settings, or inspect Sessions.
+The pet stays visible while Kiro is minimized or closed. Drag it to move it. Double-click to open the selected IDE workspace. Right-click for pet selection, ZIP or folder import, settings, the session picker, connection health, animation preview, and Quit. Windows+Alt+P opens the session picker if the shortcut is available.
 
-For imports, install Python and then run `python -m pip install -r requirements.txt`.
-
-## Control the pet
-
-| Command | Behavior |
-|---|---|
-| `kiro-pet start` | Start one companion; repeated calls reuse it |
-| `kiro-pet stop` | Exit the companion |
-| `kiro-pet show` | Show the pet; start it if necessary |
-| `kiro-pet hide` | Hide the character while status tracking continues |
-| `kiro-pet select <name-or-key>` | Switch characters immediately |
-| `kiro-pet import "<zip-or-folder>"` | Import and select a Codex pet |
-| `kiro-pet pets` | List installed names and keys |
+| Command | Action |
+| --- | --- |
+| `kiro-pet start` / `stop` | Start one pet or exit it |
+| `kiro-pet show` / `hide` | Show the pet or hide its window while tracking continues |
+| `kiro-pet status` / `sessions` | Show process health or session status |
+| `kiro-pet tray` | Open the session picker |
+| `kiro-pet pets` / `select <name>` | List installed characters or switch instantly |
+| `kiro-pet import "<ZIP-or-folder>"` | Import and select a Codex pet |
 | `kiro-pet settings` | Open animation and startup settings |
-| `kiro-pet status` | Show process and connection counts |
-| `kiro-pet sessions` | List recorded sessions in the terminal |
-| `kiro-pet connections` | List automatically discovered workspaces |
-| `kiro-pet startup on/off/status` | Manage optional start at sign-in |
+| `kiro-pet startup on/off/status` | Manage optional start at sign-in on Windows |
+| `kiro-pet uninstall` | Remove the command and sign-in startup |
 
-Windows+Alt+P shows the pet and opens its session picker. If another app owns the shortcut, commands still work.
+The app reads Kiro's native event files in the background. It does not start a command for each task event. Each session has its own state. The pet prioritizes Needs input, Blocked/error, unread Done, Working, then Idle. A completion or terminal error stays unread until you mark that result checked in the session picker. Checking one session leaves the others unread.
 
-Drag the pet to move it. Its position is saved. Double-click brings the selected IDE workspace forward. Right-click **Sessions** to choose another session or mark one completion checked.
+The picker shows native chat titles. Opening an IDE workspace cannot yet select an exact chat. Opening a CLI session's terminal is also not implemented. CLI V2 is not supported. Ordinary conversational questions are shown as Needs input only when Kiro emits a structured pending interaction.
 
-The companion remains visible and rests when nothing is active. Closing IDE or CLI sessions does not exit the companion. Start at sign-in is off by default.
+## Characters and animation
 
-## Choose animations
+Spark is included. Import a compatible Codex pet ZIP or a folder containing `pet.json` and its sprite sheet. Version 1 (8×9) and version 2 (8×11) sheets are supported, with 192×208 pixel cells. Imported WebP sheets become local transparent PNGs. The pet library stays outside the installed program.
 
-Settings contains a playback slider from 0.10x to 2.00x. At 0.10x, frame playback is ten times slower than normal. A separate duration slider repeats each action for 5 to 120 seconds before moving to the next selected action. Complete animation loops finish before changing actions; a new task status takes effect immediately.
+Settings offers a playback speed slider from 0.10× to 2.00×, an independent action duration slider, reduced motion, and animation choices for each status. Action choices are saved per character. The bubble has one position per character, based on visible pixels across its frames, so switching actions does not move it. The pet remains visible and rests when there is no active task.
 
-Choose one or more actions for Idle, Working, Needs input, Blocked/error, and unread Done. Assignments are saved per character. Restore defaults resets the selected character's assignments and the playback controls.
+## Build from source
 
-Reduced motion uses a static frame. This is a manual setting; automatic detection of the Windows accessibility preference is not implemented.
-
-## Understand multiple sessions
-
-Each native session has a separate state machine keyed by its session ID. One chat finishing cannot overwrite another chat's Working status. The session picker uses Kiro's saved chat titles.
-
-Priority is **Needs input > Blocked/error > unread Done > Working > Idle**. If a completion takes priority while other sessions work, the bubble mentions the working count.
-
-Done and terminal task errors stay until that result is explicitly marked checked in Sessions. Opening a workspace does not acknowledge a specific chat because this integration cannot select an exact IDE conversation. Completion identity comes from the native execution and turn IDs, so restarting the pet does not create a new completion.
-
-Native lease and process checks identify closed or abandoned sessions. Unread results remain available after closing. Silence does not mean a task finished.
-
-The reader runs inside the pet process. It reads appended native turn and approval records in the background, without launching a command hook or another process for each task event. It does not modify Kiro's session files.
-
-## Limits
-
-- CLI V3 uses the native session store. CLI V2 is not supported.
-- Session schema `1.0.0`, data model `1`, is supported. Other schemas are reported in Connection health.
-- The picker opens IDE workspaces, not exact chats. CLI terminal activation is not implemented.
-- A tool error does not automatically mean the task is blocked. The connector does not infer an error from a recoverable tool failure.
-- Needs input follows structured native pending interactions, including approvals. Ordinary conversational questions are not classified from their wording.
-- The reader follows explicitly declared child streams. An unsupported future delegated-event format may require an adapter update.
-
-## Diagnose connections
-
-Right-click **Connection health** to inspect automatic discovery, startup recovery, missing files, and unsupported session schemas.
-
-Settings, imported pets, acknowledgements, and logs live under `%LOCALAPPDATA%\KiroPet`, outside the project. `native-sessions.json` stores result summaries without prompts or tool contents. `app.stderr.log` contains renderer failures. Old hook logs are not used.
-
-Set `KIRO_PET_HOME` to use an isolated pet data folder. Set `KIRO_NATIVE_HOME` to read a different Kiro data directory; the default is `%USERPROFILE%\.kiro`.
-
-## Verify and package
+Install the .NET 10 SDK, then run:
 
 ```powershell
-pwsh -NoProfile -File .\Verify.ps1
-pwsh -NoProfile -File .\Verify.ps1 -Live
-pwsh -NoProfile -File .\Verify-HookMigration.ps1
-pwsh -NoProfile -File .\Verify-LiveCli.ps1
-python .\Verify-Imports.py
-pwsh -NoProfile -File .\Build-Package.ps1
+dotnet build KiroPet.slnx
+dotnet run --project tests/KiroPet.Checks
+dotnet run --project src/KiroPet.Desktop
 ```
 
-The live UI check opens a temporary companion backed by isolated native session fixtures, operates its actual controls, then removes its temporary data. `Verify-LiveCli.ps1` runs a reply-only CLI task in a hook-free workspace to verify the compiled reader.
+The CLI and desktop are separate executables. For a development CLI command, set `KIRO_PET_DESKTOP` to the built desktop executable and run `dotnet run --project src/KiroPet.Cli -- start`.
 
-The development ZIP excludes personal pets, logs, and settings. Clean-machine installation testing and bundled dependency distribution are still pending. See [Artwork and dependencies](THIRD-PARTY.md).
+The [architecture notes](docs/architecture.md) explain ownership of session state, graphics, commands, and settings. The [Windows checks](.github/workflows/checks.yml) build, verify, and package the app. Imported pets and settings are never placed in a release archive.
 
-## Uninstall
+## Data and removal
 
-Run `pwsh -File .\Install.ps1 -Uninstall`. It removes the command, sign-in startup entry, and connected pet hooks. User pets and settings remain available.
+`KIRO_PET_HOME` selects a different pet data folder. `KIRO_NATIVE_HOME` selects a different Kiro session store; the default is `~/.kiro`. Settings, selected pet, position, acknowledgements, and local session summaries live under `%LOCALAPPDATA%\KiroPet` on Windows.
+
+`kiro-pet uninstall` removes the command and sign-in startup. It keeps imported pets, settings, and old installed version folders so they can be recovered. Delete those folders manually only after confirming you no longer need them.
 
 ## License
 
-The source code and original Spark artwork use the [MIT license](LICENSE). Imported pets retain their original licensing terms.
+Kiro Pet's code and original Spark artwork use the [MIT license](LICENSE). Imported artwork keeps its original license. See [third-party notices](THIRD-PARTY.md).

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KiroPet.Core/KiroPet.Core.csproj" />
+    <Project Path="src/KiroPet.Desktop/KiroPet.Desktop.csproj" />
+    <Project Path="src/KiroPet.Cli/KiroPet.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KiroPet.Checks/KiroPet.Checks.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/KiroPet.Package/KiroPet.Package.csproj" />
+  </Folder>
+</Solution>

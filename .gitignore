@@ -4,3 +4,8 @@ dist/
 *.log
 investigation/
 Publish-Session.ps1
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user

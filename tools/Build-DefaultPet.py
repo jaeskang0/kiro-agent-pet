@@ -47,7 +47,7 @@ def chunk(kind, data):
 raw = b"".join(b"\0" + pixels[y * WIDTH * 4:(y + 1) * WIDTH * 4] for y in range(HEIGHT))
 png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", WIDTH, HEIGHT, 8, 6, 0, 0, 0))
 png += chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
-destination = Path(__file__).resolve().parents[1] / "assets" / "spark.png"
+destination = Path(__file__).resolve().parents[1] / "src" / "KiroPet.Desktop" / "Assets" / "spark.png"
 destination.parent.mkdir(parents=True, exist_ok=True)
 destination.write_bytes(png)
 print(f"Generated original Spark artwork: {destination}")
