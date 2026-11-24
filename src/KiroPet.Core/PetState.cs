@@ -120,14 +120,18 @@ public static class SessionPolicy
         ["waiting"] = 5, ["error"] = 4, ["done"] = 3, ["working"] = 2, ["idle"] = 1
     };
 
+    public static int PriorityOf(NativeSession session, Dictionary<string, string> acknowledged)
+    {
+        if (!Priority.TryGetValue(session.Status, out int rank)) return 0;
+        if (session.Status is "done" or "error")
+            return acknowledged.TryGetValue(session.Key, out var completion) && completion == session.CompletionId ? 0 : rank;
+        return session.Closed || session.Disconnected ? 0 : rank;
+    }
+
     public static SessionSummary Summarize(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged)
     {
-        var unread = sessions.Where(session =>
-            Priority.ContainsKey(session.Status) &&
-            ((session.Status is "done" or "error")
-                ? (!acknowledged.TryGetValue(session.Key, out var completion) || completion != session.CompletionId)
-                : !session.Closed && !session.Disconnected))
-            .OrderByDescending(session => Priority[session.Status]).ThenBy(session => session.Timestamp).ToArray();
+        var unread = sessions.Where(session => PriorityOf(session, acknowledged) > 0)
+            .OrderByDescending(session => PriorityOf(session, acknowledged)).ThenBy(session => session.Timestamp).ToArray();
         return new SessionSummary
         {
             Status = unread.FirstOrDefault()?.Status ?? "idle",

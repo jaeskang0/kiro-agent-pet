@@ -150,7 +150,8 @@ public sealed partial class PetWindow
     {
         if (_sessionList == null) return;
         string? selected = (_sessionList.SelectedItem as SessionRow)?.Session.Key;
-        var rows = _snapshot.Sessions.Select(session =>
+        var rows = _snapshot.Sessions.OrderByDescending(session => SessionPolicy.PriorityOf(session, _ack))
+            .ThenBy(session => session.Timestamp).Select(session =>
         {
             string state = _ack.TryGetValue(session.Key, out var result) && result == session.CompletionId ? "Checked" :
                 session.Status switch { "waiting" => "Needs input", "recovering" => "Recovering status", _ => session.Status };
