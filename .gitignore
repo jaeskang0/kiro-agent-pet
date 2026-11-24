@@ -9,3 +9,6 @@ Publish-Session.ps1
 artifacts/
 .vs/
 *.user
+**/node_modules/
+extensions/*/out/
+*.vsix

@@ -6,7 +6,7 @@ Kiroling is written in C# with Avalonia. Windows has been tested. Avalonia also 
 
 ## Run on Windows
 
-1. Download [kiroling-0.3.1-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.1/kiroling-0.3.1-windows.zip) from the [Kiroling v0.3.1 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.1).
+1. Download [kiroling-0.4.0-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.4.0/kiroling-0.4.0-windows.zip) from the [Kiroling v0.4.0 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.4.0).
 2. Extract the ZIP.
 3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
 
@@ -34,7 +34,15 @@ Kiroling uses the `kiro-pet` command and `KiroPet` data folder in this version t
 
 ## Use it
 
-The pet stays visible while Kiro is minimized or closed. Drag it to move it. Double-click to open the selected IDE workspace. Right-click for pet selection, ZIP or folder import, settings, the session picker, connection health, animation preview, and Quit. Windows+Alt+P opens the session picker if the shortcut is available.
+The pet stays visible while Kiro is minimized or closed. Drag it to move it; dragging never opens an agent or dismisses a result. Click the pet or its bubble to open the selected IDE chat and mark that result read after the exact chat is visible. Clicking a CLI agent opens its row in the session picker, where you can mark the result checked manually.
+
+Right-click for pet selection, ZIP or folder import, settings, the session picker, IDE bridge setup, connection health, animation preview, and Quit. Windows+Alt+P opens the session picker if the shortcut is available.
+
+### Enable IDE chat opening
+
+Right-click the pet and choose **Enable Kiro IDE chat opening…** to install the bundled companion extension into Kiro. If Kiro was already running, reload its window after installation. On the first chat-opening request, Kiro asks whether the bridge may open the link. Choose **Open**; select **Do not ask me again for this extension** for subsequent pet clicks to open directly.
+
+The bridge opens the selected chat in a Kiro editor tab. Manually focusing a chat editor tab also marks that session's completed result read. Sidebar chats are not automatically checked because they do not expose the same reliable focus signal. A failed opening or a stale completion reply leaves the result unread.
 
 | Command | Action |
 | --- | --- |
@@ -48,9 +56,9 @@ The pet stays visible while Kiro is minimized or closed. Drag it to move it. Dou
 | `kiro-pet startup on/off/status` | Manage optional start at sign-in on Windows |
 | `kiro-pet uninstall` | Remove the command and sign-in startup |
 
-The app reads Kiro's native event files in the background. It does not start a command for each task event. Each session has its own state. The pet prioritizes Needs input, Blocked/error, unread Done, Working, then Idle. A completion or terminal error stays unread until you mark that result checked in the session picker. Checking one session leaves the others unread.
+The app reads Kiro's native event files in the background. It does not start a command for each task event. Each session has its own state. The pet prioritizes Needs input, Blocked/error, unread Done, Working, then Idle. A completion or terminal error stays unread until you view its IDE chat or mark that result checked in the session picker. Checking one session leaves the others unread.
 
-The picker shows native chat titles. Opening an IDE workspace cannot yet select an exact chat. Opening a CLI session's terminal is also not implemented. CLI V2 is not supported. Ordinary conversational questions are shown as Needs input only when Kiro emits a structured pending interaction.
+The picker shows native chat titles and retains checked results. Old completed chats remain unread until you check them; there is no age cutoff or timeout. Exact IDE chat opening requires the bridge. Opening a CLI session's terminal is not implemented. CLI V2 is not supported. Ordinary conversational questions are shown as Needs input only when Kiro emits a structured pending interaction.
 
 ## Characters and animation
 
@@ -69,6 +77,17 @@ dotnet run --project src/KiroPet.Desktop
 ```
 
 The CLI and desktop are separate executables. For a development CLI command, set `KIRO_PET_DESKTOP` to the built desktop executable and run `dotnet run --project src/KiroPet.Cli -- start`.
+
+To build the IDE bridge, use Node.js 22 or later:
+
+```powershell
+cd extensions/kiroling-bridge
+npm ci --ignore-scripts
+npm run check
+npm run package
+```
+
+The Windows release ZIP includes the bridge VSIX. The desktop's setup menu installs it without requiring terminal commands.
 
 The [architecture notes](docs/architecture.md) explain ownership of session state, graphics, commands, and settings. The [Windows checks](.github/workflows/checks.yml) build, verify, and package the app. Imported pets and settings are never placed in a release archive.
 

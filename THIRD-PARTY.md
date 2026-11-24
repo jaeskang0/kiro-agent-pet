@@ -6,6 +6,8 @@ Users can import their own Codex pet packs. Imported artwork stays in the user's
 
 The desktop interface uses Avalonia. Sprite decoding and conversion use SkiaSharp through Avalonia. These packages and the bundled .NET runtime retain their own licenses.
 
+The Kiroling IDE Bridge is original MIT-licensed code. It uses Kiro's supplied VS Code extension API and internal chat commands. TypeScript and VSIX packaging dependencies are build tools and are not bundled as runtime dependencies in the bridge.
+
 The status reader and animation behavior were adapted from the user's existing local pet prototype. Kiroling does not require Herdr or PowerShell to run.
 
 The MIT license does not change the licenses of imported artwork or third-party dependencies.

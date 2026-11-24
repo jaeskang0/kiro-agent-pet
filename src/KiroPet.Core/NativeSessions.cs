@@ -15,6 +15,7 @@ namespace KiroPet {
         public string Key { get; set; }
         public string SessionId { get; set; }
         public string Source { get; set; }
+        public int OwnerPid { get; set; }
         public string Title { get; set; }
         public string Workspace { get; set; }
         public string WorkspaceKey { get; set; }
@@ -324,6 +325,7 @@ namespace KiroPet {
             if (!Directory.Exists(leaseRoot) || !Directory.Exists(sessionsRoot)) return;
             var live = new Dictionary<string, string>();
             var acquiredTimes = new Dictionary<string, long>();
+            var ownerPids = new Dictionary<string, int>();
             var knownSources = new Dictionary<string, string>();
             var processes = new Dictionary<int, DateTime?>();
             foreach (string file in Directory.EnumerateFiles(leaseRoot, "sess_*.lease")) {
@@ -364,6 +366,7 @@ namespace KiroPet {
                         }
                         live[id] = source;
                         acquiredTimes[id] = acquired;
+                        ownerPids[id] = pid;
                     }
                 } catch (IOException) {} catch (JsonException) {}
             }
@@ -408,7 +411,10 @@ namespace KiroPet {
                         }
                         item.Live = isLive;
                         item.WasLive |= isLive;
-                        if (isLive) item.LeaseAcquired = acquiredTimes[id];
+                        if (isLive) {
+                            item.LeaseAcquired = acquiredTimes[id];
+                            item.Metadata.OwnerPid = ownerPids[id];
+                        }
                     } catch (IOException) { health.Add("Waiting for a Kiro session's metadata to become readable."); }
                     catch (JsonException) { health.Add("Waiting for complete Kiro session metadata."); }
                 }
@@ -474,7 +480,7 @@ namespace KiroPet {
 
         private static NativeSession Copy(NativeSession session) {
             return new NativeSession {
-                Key = session.Key, SessionId = session.SessionId, Source = session.Source, Title = session.Title,
+                Key = session.Key, SessionId = session.SessionId, Source = session.Source, Title = session.Title, OwnerPid = session.OwnerPid,
                 Workspace = session.Workspace, WorkspaceKey = session.WorkspaceKey, Status = session.Status,
                 CompletionId = session.CompletionId, Timestamp = session.Timestamp, Closed = session.Closed,
                 Disconnected = session.Disconnected, Event = session.Event

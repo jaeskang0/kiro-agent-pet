@@ -1,0 +1,15 @@
+# Kiroling IDE Bridge
+
+This companion extension lets the Kiroling desktop pet open an exact Kiro IDE chat.
+
+Use **Enable Kiro IDE chat opening…** in the pet's right-click menu to install it. If Kiro was already running, reload its window once after installation.
+
+Clicking the pet or its bubble opens the selected IDE chat in an editor tab. Kiroling marks that result read only after the requested chat tab is active in a focused Kiro window.
+
+Manually focusing a Kiro chat editor tab also marks its completed result read. Sidebar chats do not expose the same reliable focus signal and are not automatically checked.
+
+The extension does not send prompts or use Kiro command hooks. Existing IDE and CLI status tracking continues in the desktop app. CLI terminal navigation is not provided by this extension.
+
+The integration uses Kiro's internal chat commands and was developed against Kiro 1.5.11. Unsupported command responses leave results unread.
+
+Kiroling is an independent project and is not affiliated with Kiro or AWS.

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Automation;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -34,16 +35,21 @@ public sealed partial class PetWindow : Window
     private string _state = "idle";
     private int _tick, _clip;
     private bool _hovered, _positionReady;
+    private Point? _pressPoint;
+    private NativeSession? _pressTarget;
+    private bool _dragging, _openingAgent;
     private readonly Queue<string> _preview = new();
     private Window? _settingsWindow, _sessionsWindow;
     private WindowsHotkey? _hotkey;
     private long _sessionVersion = -1;
+    private DateTime _nextIdePublish;
     private ListBox? _sessionList;
     private TextBlock? _sessionHealth;
 
     public PetWindow()
     {
         Title = "Kiroling";
+        AutomationProperties.SetName(_image, "Kiroling pet");
         Width = 176; Height = 222;
         CanResize = false; ShowInTaskbar = false; Topmost = true;
         SystemDecorations = SystemDecorations.None;
@@ -60,6 +66,7 @@ public sealed partial class PetWindow : Window
             BorderBrush = Brush("#40342C"), BorderThickness = new Thickness(1.25),
             Padding = new Thickness(12, 7, 12, 8), MinWidth = 142, MaxWidth = 168
         };
+        AutomationProperties.SetName(_bubble, "Agent status");
         Canvas.SetLeft(_bubble, 4);
         _canvas.Children.Add(_bubble);
         Canvas.SetLeft(_tail, 78);
@@ -76,10 +83,34 @@ public sealed partial class PetWindow : Window
         _canvas.PointerExited += (_, _) => { _hovered = false; UpdateBubble(); };
         PointerPressed += (_, args) =>
         {
-            if (!args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-            if (args.ClickCount == 2) OpenWorkspace(_summary.Target);
-            else { BeginMoveDrag(args); Preview(["wave"]); }
+            if (!args.GetCurrentPoint(this).Properties.IsLeftButtonPressed || args.ClickCount > 1) return;
+            _pressPoint = args.GetPosition(this);
+            _pressTarget = _summary.Target;
+            _dragging = false;
+            args.Pointer.Capture(this);
+            args.Handled = true;
         };
+        PointerMoved += (_, args) =>
+        {
+            if (_pressPoint is not { } pressed || !args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            var delta = args.GetPosition(this) - pressed;
+            if (!_dragging && delta.X * delta.X + delta.Y * delta.Y < 36) return;
+            if (!_dragging) { _dragging = true; Preview(["wave"]); }
+            double scale = Screens.ScreenFromPoint(Position)?.Scaling ?? 1;
+            Position = new PixelPoint(Position.X + (int)Math.Round(delta.X * scale), Position.Y + (int)Math.Round(delta.Y * scale));
+            args.Handled = true;
+        };
+        PointerReleased += (_, args) =>
+        {
+            if (args.InitialPressMouseButton != MouseButton.Left || _pressPoint == null) return;
+            bool clicked = !_dragging;
+            var target = _pressTarget;
+            _pressPoint = null; _pressTarget = null; _dragging = false;
+            args.Pointer.Capture(null);
+            if (clicked) _ = OpenAgentAsync(target);
+            args.Handled = true;
+        };
+        PointerCaptureLost += (_, _) => { _pressPoint = null; _pressTarget = null; _dragging = false; };
         PositionChanged += (_, _) => { if (_positionReady) SavePosition(); };
         _animation.Tick += (_, _) => DrawFrame();
         _status.Tick += (_, _) => RefreshStatus();
@@ -177,6 +208,18 @@ public sealed partial class PetWindow : Window
     private void RefreshStatus()
     {
         _snapshot = _reader.Poll();
+        if (_snapshot.Version != _sessionVersion || DateTime.UtcNow >= _nextIdePublish)
+        {
+            IdeBridge.Publish(_snapshot.Sessions);
+            _nextIdePublish = DateTime.UtcNow.AddSeconds(1);
+        }
+        bool checkedResult = false;
+        foreach (var viewed in IdeBridge.TakeViewed())
+        {
+            if (SessionPolicy.MarkViewed(_snapshot.Sessions, _ack, viewed))
+                checkedResult = true;
+        }
+        if (checkedResult) PetStore.Write("acknowledged.json", _ack);
         _summary = SessionPolicy.Summarize(_snapshot.Sessions, _ack);
         if (_state != _summary.Status)
         {
@@ -184,7 +227,7 @@ public sealed partial class PetWindow : Window
         }
         UpdateBubble();
         ToolTip.SetTip(_image, string.Join("\n", _snapshot.Health));
-        if (_snapshot.Version != _sessionVersion)
+        if (_snapshot.Version != _sessionVersion || checkedResult)
         {
             _sessionVersion = _snapshot.Version;
             RefreshSessions();
@@ -224,11 +267,18 @@ public sealed partial class PetWindow : Window
         Populate();
         var menu = new ContextMenu();
         menu.Opened += (_, _) => Populate();
+        var enableIde = new MenuItem { Header = "Enable Kiro IDE chat opening..." };
+        enableIde.Click += async (_, _) =>
+        {
+            try { Message("Kiro IDE navigation", await IdeBridge.Install()); }
+            catch (Exception error) { Message("Kiro IDE navigation", error.Message); }
+        };
         menu.ItemsSource = new Control[]
         {
             change,
             Item("Import ZIP...", async () => await ImportPicker(false)),
             Item("Import folder...", async () => await ImportPicker(true)),
+            enableIde,
             Item("Settings...", ShowSettings),
             Item("Sessions...", ShowSessions),
             Item("Connection health...", () => Message("Connection health", string.Join("\n", _snapshot.Health))),
@@ -291,9 +341,36 @@ public sealed partial class PetWindow : Window
 
     private void Guard(Action action) { try { action(); } catch (Exception error) { Message("Kiroling", error.Message); } }
 
-    private void OpenWorkspace(NativeSession? session)
+    private void MarkRead(NativeSession? session)
     {
-        if (session?.Source == "cli") { Message("Kiroling", "Return to your CLI terminal to review this session. Use Sessions to mark its result checked."); return; }
+        if (session == null || !SessionPolicy.MarkRead(_snapshot.Sessions, _ack, session.Key, session.CompletionId)) return;
+        PetStore.Write("acknowledged.json", _ack);
+        RefreshStatus();
+        RefreshSessions();
+    }
+
+    private async Task OpenAgentAsync(NativeSession? session)
+    {
+        if (_openingAgent) return;
+        if (session?.Source == "cli")
+        {
+            ShowSessions();
+            SelectSession(session.Key);
+            return;
+        }
+        if (session?.Source == "ide")
+        {
+            _openingAgent = true;
+            try
+            {
+                var result = await IdeBridge.Open(session);
+                if (result.Opened) MarkRead(session);
+                else Message("Open Kiro chat", result.Message);
+            }
+            catch (Exception error) { Message("Open Kiro chat", error.Message); }
+            finally { _openingAgent = false; }
+            return;
+        }
         Guard(() =>
         {
             var start = new ProcessStartInfo { UseShellExecute = true };
@@ -301,7 +378,6 @@ public sealed partial class PetWindow : Window
                 start.FileName = Environment.GetEnvironmentVariable("KIRO_EDITOR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Kiro", "Kiro.exe");
             else if (OperatingSystem.IsMacOS()) { start.FileName = "/usr/bin/open"; start.ArgumentList.Add("-a"); start.ArgumentList.Add("Kiro"); start.ArgumentList.Add("--args"); }
             else start.FileName = "kiro";
-            if (session?.Workspace != null) start.ArgumentList.Add(session.Workspace);
             Process.Start(start);
         });
     }

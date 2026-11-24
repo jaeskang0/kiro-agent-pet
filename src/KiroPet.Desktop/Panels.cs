@@ -163,6 +163,12 @@ public sealed partial class PetWindow
         if (_sessionHealth != null) _sessionHealth.Text = string.Join("\n", _snapshot.Health);
     }
 
+    private void SelectSession(string key)
+    {
+        if (_sessionList?.ItemsSource is IEnumerable<SessionRow> rows)
+            _sessionList.SelectedItem = rows.FirstOrDefault(row => row.Session.Key == key);
+    }
+
     private void ShowSessions()
     {
         if (_sessionsWindow != null) { _sessionsWindow.Activate(); return; }
@@ -172,26 +178,27 @@ public sealed partial class PetWindow
         DockPanel.SetDock(_sessionHealth, Dock.Top);
         panel.Children.Add(_sessionHealth);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 12, 0, 0) };
+        Button? openChat = null;
         DockPanel.SetDock(buttons, Dock.Bottom);
-        foreach (string name in new[] { "Open workspace", "Mark completion checked", "Refresh" })
+        foreach (string name in new[] { "Open IDE chat", "Mark completion checked", "Refresh" })
         {
             var button = new Button { Content = name, Padding = new Thickness(9, 7) };
-            button.Click += (_, _) =>
+            if (name == "Open IDE chat") { openChat = button; button.IsEnabled = false; }
+            button.Click += async (_, _) =>
             {
                 if (name == "Refresh") { RefreshStatus(); RefreshSessions(); return; }
                 if (_sessionList?.SelectedItem is not SessionRow row) return;
-                if (name == "Open workspace") OpenWorkspace(row.Session);
-                else if (row.Session.Status is "done" or "error")
-                {
-                    _ack[row.Session.Key] = row.Session.CompletionId;
-                    PetStore.Write("acknowledged.json", _ack);
-                    RefreshStatus(); RefreshSessions();
-                }
+                if (name == "Open IDE chat") await OpenAgentAsync(row.Session);
+                else MarkRead(row.Session);
             };
             buttons.Children.Add(button);
         }
         panel.Children.Add(buttons);
         _sessionList = new ListBox();
+        _sessionList.SelectionChanged += (_, _) =>
+        {
+            if (openChat != null) openChat.IsEnabled = _sessionList?.SelectedItem is SessionRow row && row.Session.Source == "ide";
+        };
         panel.Children.Add(_sessionList);
         _sessionsWindow.Content = panel;
         _sessionsWindow.Closed += (_, _) => { _sessionsWindow = null; _sessionList = null; _sessionHealth = null; };

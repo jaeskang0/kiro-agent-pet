@@ -2,11 +2,27 @@ using System.Text;
 using System.Text.Json;
 using KiroPet;
 
+if (args.Length == 1 && args[0] == "--tcp-helper")
+{
+    var server = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+    try
+    {
+        server.Start();
+        Console.WriteLine(((System.Net.IPEndPoint)server.LocalEndpoint).Port);
+        Console.Out.Flush();
+        Console.ReadLine();
+    }
+    finally { server.Stop(); }
+    return 0;
+}
+
 string temporary = Path.Combine(Path.GetTempPath(), "kiro-pet-csharp-check-" + Guid.NewGuid().ToString("N"));
 string? oldData = Environment.GetEnvironmentVariable("KIRO_PET_HOME");
 Directory.CreateDirectory(temporary);
 Environment.SetEnvironmentVariable("KIRO_PET_HOME", Path.Combine(temporary, "data"));
 NativeReader? reader = null;
+System.Net.Sockets.TcpListener? windowServer = null;
+System.Diagnostics.Process? agentHelper = null;
 try
 {
     var primary = new DisplayArea(0, 0, 1920, 1152, 1, true);
@@ -38,6 +54,7 @@ try
     reader = new NativeReader(native, Path.Combine(temporary, "cache.json"), true);
     var snapshot = reader.ReadNow();
     Assert(snapshot.Sessions.Length == 2 && snapshot.Sessions.All(session => session.Status == "working"), "Running turns were not recovered.");
+    Assert(snapshot.Sessions.All(session => session.OwnerPid == Environment.ProcessId), "Native ownership was not retained for IDE window routing.");
     Event(a, "turn_end", "wrong", new() { ["stopReason"] = "end_turn" });
     Assert(Session(reader.ReadNow(), "sess_check-a").Status == "working", "Old execution finished a new turn.");
     Event(a, "pending_interaction", "a", new() { ["toolCallId"] = "approval" });
@@ -47,7 +64,10 @@ try
     snapshot = reader.ReadNow();
     var done = Session(snapshot, "sess_check-a");
     Assert(done.CompletionId == "a:a", "Native completion identity changed.");
-    var acknowledged = new Dictionary<string, string> { [done.Key] = done.CompletionId };
+    var acknowledged = new Dictionary<string, string>();
+    Assert(!SessionPolicy.MarkRead(snapshot.Sessions, acknowledged, done.Key, "old-completion"), "A stale click acknowledged a newer result.");
+    Assert(SessionPolicy.MarkRead(snapshot.Sessions, acknowledged, done.Key, done.CompletionId), "The selected result could not be acknowledged.");
+    Assert(!SessionPolicy.MarkRead(snapshot.Sessions, acknowledged, done.Key, done.CompletionId), "Repeated acknowledgement changed state.");
     Assert(SessionPolicy.Summarize(snapshot.Sessions, acknowledged).Status == "working", "One acknowledgement hid the other session.");
     using (var restarted = new NativeReader(native, Path.Combine(temporary, "cache.json"), false))
         Assert(Session(restarted.ReadNow(), "sess_check-a").CompletionId == done.CompletionId, "Restart changed completion identity.");
@@ -65,6 +85,79 @@ try
     Assert(SessionPolicy.Summarize(snapshot.Sessions, acknowledged).Status == "idle", "Terminal error could not be acknowledged.");
     Console.WriteLine("Native session and acknowledgement PASS");
 
+    var autoRead = new Dictionary<string, string>();
+    Assert(!SessionPolicy.MarkViewed(snapshot.Sessions, autoRead, new IdeViewed(failure.SessionId, failure.CompletionId)), "An IDE focus event acknowledged a CLI session.");
+    Assert(!SessionPolicy.MarkViewed(snapshot.Sessions, autoRead, new IdeViewed(done.SessionId, "stale")), "A stale IDE focus acknowledged a newer result.");
+    Assert(SessionPolicy.MarkViewed(snapshot.Sessions, autoRead, new IdeViewed(done.SessionId, done.CompletionId)), "The visible IDE result was not acknowledged.");
+    Assert(autoRead.Count == 1 && !autoRead.ContainsKey(failure.Key), "Viewing one IDE result dismissed another agent.");
+    Console.WriteLine("Individual click and IDE focus acknowledgement PASS");
+
+    using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+    long startedAt = new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds();
+    long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    if (OperatingSystem.IsWindows())
+    {
+        string host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ??
+            Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "..", "..", "..", "dotnet.exe"));
+        var helperStart = new System.Diagnostics.ProcessStartInfo(host)
+        {
+            UseShellExecute = false, CreateNoWindow = true, WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        helperStart.ArgumentList.Add(typeof(Program).Assembly.Location);
+        helperStart.ArgumentList.Add("--tcp-helper");
+        agentHelper = System.Diagnostics.Process.Start(helperStart)!;
+        var portLine = agentHelper.StandardOutput.ReadLineAsync();
+        Assert(portLine.Wait(10000) && int.TryParse(portLine.Result, out _), "The TCP owner test helper did not start.");
+        int agentPort = int.Parse(portLine.Result!);
+        now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var endpoint = new IdeEndpoint(Environment.ProcessId, startedAt, now,
+            "kiro://jaeskang0.kiroling-bridge/open?windowId=1", [temporary], [done.SessionId], 1, agentPort);
+        string endpointFile = PetPaths.InData(Path.Combine("ide-endpoints", Environment.ProcessId + ".json"));
+        var remoteAgent = new NativeSession { SessionId = done.SessionId, Source = "ide", Workspace = temporary, OwnerPid = agentHelper.Id };
+        PetStore.WriteFile(endpointFile, endpoint);
+        Assert(agentHelper.Id != endpoint.Pid && IdeBridge.Locate(remoteAgent)?.Pid == Environment.ProcessId,
+            "The owning IDE window was not found when its agent and bridge use different processes.");
+        Assert(IdeBridge.Locate(done) == null, "A different agent process was accepted for this IDE window.");
+        string ambiguousFile = PetPaths.InData(Path.Combine("ide-endpoints", agentHelper.Id + ".json"));
+        PetStore.WriteFile(ambiguousFile, endpoint with
+        {
+            Pid = agentHelper.Id,
+            StartedAt = new DateTimeOffset(agentHelper.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds(),
+            WindowId = 2, Uri = "kiro://jaeskang0.kiroling-bridge/open?windowId=2"
+        });
+        Assert(IdeBridge.Locate(remoteAgent) == null, "Ambiguous IDE windows silently selected the first match.");
+        File.Delete(ambiguousFile);
+        PetStore.WriteFile(endpointFile, endpoint with { UpdatedAt = now - 30000 });
+        Assert(IdeBridge.Locate(remoteAgent) == null, "A stale IDE endpoint was accepted.");
+        PetStore.WriteFile(endpointFile, endpoint with { Uri = "kiro://other-extension/open" });
+        Assert(IdeBridge.Locate(remoteAgent) == null, "An unrelated extension link was accepted.");
+        agentHelper.StandardInput.Close();
+        Assert(agentHelper.WaitForExit(5000), "The TCP owner helper did not stop.");
+        agentHelper.Dispose();
+        agentHelper = null;
+        windowServer = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        windowServer.Start();
+        PetStore.WriteFile(endpointFile, endpoint with { AgentPort = ((System.Net.IPEndPoint)windowServer.LocalEndpoint).Port });
+        Console.WriteLine("Separate IDE agent/bridge processes and stale endpoint rejection PASS");
+    }
+
+    string recovering = Fixture("sess_recovering", "kiro-ide", "working");
+    File.Delete(Path.Combine(recovering, "messages.jsonl"));
+    Event(a, "turn_start", "cache-refresh");
+    Event(a, "turn_end", "cache-refresh", new() { ["stopReason"] = "end_turn" });
+    Thread.Sleep(1050);
+    var recoveringSnapshot = reader.ReadNow();
+    Assert(recoveringSnapshot.Recovering, "Recovery fixture did not exercise a missing event file.");
+    IdeBridge.Publish(recoveringSnapshot.Sessions);
+    var shared = PetStore.Read("ide-status.json", Array.Empty<IdeStatus>());
+    Assert(shared.Single(session => session.SessionId == "sess_check-a").CompletionId == "cache-refresh:cache-refresh",
+        "A recovering session left another IDE completion stale in the shared status file.");
+    Assert(!shared.Any(session => session.SessionId == "sess_check-b"), "The IDE bridge received a CLI session.");
+    if (OperatingSystem.IsWindows())
+        Assert(shared.Single(session => session.SessionId == "sess_check-a").WindowId == 1, "The current IDE status was not mapped to its window.");
+    Console.WriteLine("Current bridge status during recovery PASS");
+
     File.WriteAllText(Path.Combine(a, "messages.jsonl"), "");
     Event(a, "turn_start", "replacement");
     Event(a, "turn_end", "replacement", new() { ["stopReason"] = "end_turn" });
@@ -78,14 +171,14 @@ try
     Console.WriteLine("Rotation and stale ownership PASS");
     return 0;
 
-    string Fixture(string id, string client)
+    string Fixture(string id, string client, string initialStatus = "idle")
     {
         string directory = Path.Combine(native, "sessions", "group", id);
         Directory.CreateDirectory(directory);
         PetStore.WriteFile(Path.Combine(directory, "session.json"), new
         {
             schemaVersion = "1.0.0", dataModelVersion = 1, id, title = id,
-            workspacePaths = new[] { temporary }, status = "idle"
+            workspacePaths = new[] { temporary }, status = initialStatus
         });
         PetStore.WriteFile(Path.Combine(native, "session-leases", id + ".lease"), new
         {
@@ -107,6 +200,12 @@ try
 }
 finally
 {
+    windowServer?.Stop();
+    if (agentHelper != null)
+    {
+        if (!agentHelper.HasExited) agentHelper.Kill(true);
+        agentHelper.Dispose();
+    }
     reader?.Dispose();
     Environment.SetEnvironmentVariable("KIRO_PET_HOME", oldData);
     string full = Path.GetFullPath(temporary);

@@ -120,6 +120,22 @@ public static class SessionPolicy
         ["waiting"] = 5, ["error"] = 4, ["done"] = 3, ["working"] = 2, ["idle"] = 1
     };
 
+    public static bool MarkRead(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged, string key, string completionId)
+    {
+        var current = sessions.FirstOrDefault(session => session.Key == key);
+        if (current == null || current.Status is not ("done" or "error") ||
+            string.IsNullOrEmpty(completionId) || current.CompletionId != completionId ||
+            acknowledged.TryGetValue(key, out var previous) && previous == completionId) return false;
+        acknowledged[key] = completionId;
+        return true;
+    }
+
+    public static bool MarkViewed(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged, IdeViewed viewed)
+    {
+        var current = sessions.FirstOrDefault(session => session.SessionId == viewed.SessionId && session.Source == "ide");
+        return current != null && MarkRead(sessions, acknowledged, current.Key, viewed.CompletionId);
+    }
+
     public static int PriorityOf(NativeSession session, Dictionary<string, string> acknowledged)
     {
         if (!Priority.TryGetValue(session.Status, out int rank)) return 0;
