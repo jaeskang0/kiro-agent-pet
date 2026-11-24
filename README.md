@@ -4,9 +4,19 @@ An unofficial animated desktop companion for Kiro IDE and Kiro CLI V3. It watche
 
 Kiroling is written in C# with Avalonia. Windows has been tested. Avalonia also runs on macOS and Linux, but overlay behavior, shortcuts, application focus, and native session compatibility on those systems still need verification.
 
-## Install on Windows
+## Run on Windows
 
-Download [kiroling-0.3.0-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.0/kiroling-0.3.0-windows.zip) from the [Kiroling v0.3.0 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.0). Extract it, open a terminal in the extracted folder, and run:
+1. Download [kiroling-0.3.0-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.3.0/kiroling-0.3.0-windows.zip) from the [Kiroling v0.3.0 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.3.0).
+2. Extract the ZIP.
+3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
+
+No terminal or installation is needed for this portable mode. Keep the extracted folder wherever you want to run Kiroling from. Your pets and settings are saved separately and persist across launches.
+
+`kiro-pet.exe` is the optional command-line tool. Use `KiroPet.Desktop.exe` when launching from File Explorer.
+
+## Optional installation on Windows
+
+To copy Kiroling to a permanent per-user location and add its terminal commands, open a terminal in the extracted folder and run:
 
 ```powershell
 .\kiro-pet.exe install
