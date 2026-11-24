@@ -1,0 +1,30 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pet import dependency
+        run: python -m pip install -r requirements.txt
+      - name: Verify native status
+        shell: pwsh
+        run: ./Verify-NativeSessions.ps1
+      - name: Verify hook migration
+        shell: pwsh
+        run: ./Verify-HookMigration.ps1
+      - name: Verify pet imports
+        run: python Verify-Imports.py
+      - name: Build development ZIP
+        shell: pwsh
+        run: ./Build-Package.ps1

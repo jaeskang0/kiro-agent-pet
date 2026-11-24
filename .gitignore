@@ -1,0 +1,6 @@
+__pycache__/
+.vendor/
+dist/
+*.log
+investigation/
+Publish-Session.ps1
