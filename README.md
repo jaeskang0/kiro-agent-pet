@@ -6,7 +6,7 @@ Kiro Agent Pet is written in C# with Avalonia. Windows has been tested. Avalonia
 
 ## Run on Windows
 
-1. Download [kiroling-0.4.1-windows.zip](https://github.com/jaeskang0/kiroling/releases/download/v0.4.1/kiroling-0.4.1-windows.zip) from the [Kiro Agent Pet v0.4.1 for Windows release](https://github.com/jaeskang0/kiroling/releases/tag/v0.4.1).
+1. Download [kiroling-0.4.1-windows.zip](https://github.com/jaeskang0/kiro-agent-pet/releases/download/v0.4.1/kiroling-0.4.1-windows.zip) from the [Kiro Agent Pet v0.4.1 for Windows release](https://github.com/jaeskang0/kiro-agent-pet/releases/tag/v0.4.1).
 2. Extract the ZIP.
 3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
 
