@@ -56,7 +56,8 @@ export function activate(context: vscode.ExtensionContext): void {
   let windowId = 0;
   let agentPort = 0;
   const startedAt = Math.round(Date.now() - process.uptime() * 1000);
-  const endpointFile = path.join(root, "ide-endpoints", `${process.pid}.json`);
+  const endpointId = `${process.pid}-${context.extension.id}`;
+  const endpointFile = path.join(root, "ide-endpoints", `${endpointId}.json`);
 
   async function publishEndpoint(): Promise<void> {
     if (publishing || stopped || !endpointUri || windowId <= 0) return;
@@ -72,7 +73,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const id = sessionFromTab(tab.input.viewType, tab.input.uri.toString());
         return id ? [id] : [];
       }));
-      await writeJson(root, "ide-endpoints", String(process.pid), {
+      await writeJson(root, "ide-endpoints", endpointId, {
         pid: process.pid, startedAt, updatedAt: Date.now(), uri: endpointUri.toString(true), windowId, agentPort,
         workspacePaths: vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath) ?? [], sessionIds
       });

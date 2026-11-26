@@ -28,9 +28,9 @@ foreach (string component in new[] { "desktop", "cli" })
     }
 }
 foreach (string name in new[] { "README.md", "LICENSE", "THIRD-PARTY.md" }) files.Add(name, Path.Combine(project, name));
-string bridge = Path.Combine(project, "extensions", "kiro-agent-pet-bridge", "kiroling-bridge-0.4.1.vsix");
+string bridge = Path.Combine(project, "extensions", "kiro-agent-pet-bridge", "kiro-agent-pet-bridge-0.4.2.vsix");
 if (!File.Exists(bridge)) throw new FileNotFoundException("Build the Kiro IDE bridge with npm run package before packaging.", bridge);
-files.Add("kiroling-bridge.vsix", bridge);
+files.Add("kiro-agent-pet-bridge.vsix", bridge);
 if (!files.ContainsKey("kiro-pet.exe") || !files.ContainsKey("KiroPet.Desktop.exe"))
     throw new InvalidDataException("Windows package requires both native executables.");
 string temporary = output + "." + Guid.NewGuid().ToString("N") + ".tmp";

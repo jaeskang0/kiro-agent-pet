@@ -4,6 +4,8 @@ This companion extension lets the Kiro Agent Pet desktop pet open an exact Kiro 
 
 The desktop pet installs or updates this extension automatically when it starts. If Kiro is already running when the extension changes, reload its window once using **Ctrl+Shift+P → Developer: Reload Window**.
 
+The extension ID is `jaeskang0.kiro-agent-pet-bridge`. The desktop removes the old helper after verifying this extension's installation. Existing IDE windows must reload once to use the new ID.
+
 Clicking the pet or its bubble opens the selected IDE chat in an editor tab. Kiro Agent Pet marks that result read only after the requested chat tab is active in a focused Kiro window.
 
 Manually focusing a Kiro chat editor tab also marks its completed result read. Sidebar chats do not expose the same reliable focus signal and are not automatically checked.

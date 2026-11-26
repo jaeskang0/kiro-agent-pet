@@ -6,7 +6,7 @@ Kiro Agent Pet is written in C# with Avalonia. Windows has been tested. Avalonia
 
 ## Run on Windows
 
-1. Download [kiro-agent-pet-0.4.2-windows.zip](https://github.com/jaeskang0/kiro-agent-pet/releases/download/v0.4.2/kiro-agent-pet-0.4.2-windows.zip) from the [Kiro Agent Pet v0.4.2 for Windows release](https://github.com/jaeskang0/kiro-agent-pet/releases/tag/v0.4.2).
+1. Download [kiro-agent-pet-0.4.3-windows.zip](https://github.com/jaeskang0/kiro-agent-pet/releases/download/v0.4.3/kiro-agent-pet-0.4.3-windows.zip) from the [Kiro Agent Pet v0.4.3 for Windows release](https://github.com/jaeskang0/kiro-agent-pet/releases/tag/v0.4.3).
 2. Extract the ZIP.
 3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
 
@@ -30,7 +30,7 @@ kiro-pet start
 
 Installation and updates are per-user and do not need administrator rights. To update, extract a newer package and run its `kiro-pet.exe install` command. A graphical installer and automatic update checks are not available yet.
 
-Kiro Agent Pet uses the `kiro-pet` command and `KiroPet` data folder to preserve existing installations. The IDE bridge keeps its original extension ID so existing Kiro connections continue to work.
+Kiro Agent Pet uses the `kiro-pet` command and `KiroPet` data folder to preserve existing installations. Its IDE extension ID is `jaeskang0.kiro-agent-pet-bridge`.
 
 ## Use it
 
@@ -53,6 +53,8 @@ Phrases are chosen locally when a status or interaction changes, avoiding immedi
 ### Open IDE chats
 
 On Windows, Kiro Agent Pet checks its bundled Kiro helper automatically at startup. It installs a missing helper or updates an older version, and leaves an equal or newer version alone. If the helper changes while Kiro is open, Kiro Agent Pet asks you to reload those IDE windows using **Ctrl+Shift+P → Developer: Reload Window**. Pet updates that do not change the helper require no helper reinstall. Setup runs in the background; **Connection health…** shows its progress or errors. Restart Kiro Agent Pet to retry a failed setup or after installing Kiro IDE.
+
+Startup also removes the old helper after confirming the newly named extension is installed. Open Kiro windows must reload once for the new helper to handle chat-opening links. Pet settings and saved results stay in their existing data folder.
 
 On the first chat-opening request, Kiro asks whether the bridge may open the link. Choose **Open**; select **Do not ask me again for this extension** for subsequent pet clicks to open directly.
 
@@ -113,7 +115,7 @@ npm run check
 npm run package
 ```
 
-The Windows release ZIP includes the bridge VSIX. The desktop checks and installs it automatically at startup. For a source build, place the packaged VSIX beside the desktop executable as `kiroling-bridge.vsix`, or set `KIRO_PET_IDE_VSIX` to its path.
+The Windows release ZIP includes the bridge VSIX. The desktop checks and installs it automatically at startup. For a source build, place the packaged VSIX beside the desktop executable as `kiro-agent-pet-bridge.vsix`, or set `KIRO_PET_IDE_VSIX` to its path.
 
 The [architecture notes](docs/architecture.md) explain ownership of session state, graphics, commands, and settings. The [Windows checks](.github/workflows/checks.yml) build, verify, and package the app. Imported pets and settings are never placed in a release archive.
 

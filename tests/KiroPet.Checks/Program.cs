@@ -35,7 +35,7 @@ try
     string helperArchive = Path.Combine(temporary, "helper.vsix");
     using (var archive = ZipFile.Open(helperArchive, ZipArchiveMode.Create))
     using (var writer = new StreamWriter(archive.CreateEntry("extension/package.json").Open()))
-        writer.Write("""{"publisher":"jaeskang0","name":"kiroling-bridge","version":"0.4.0"}""");
+        writer.Write("""{"publisher":"jaeskang0","name":"kiro-agent-pet-bridge","version":"0.4.0"}""");
     foreach (string? initial in new string?[] { null, "0.3.9", "0.4.0", "0.4.1" })
     {
         string? current = initial;
@@ -46,7 +46,7 @@ try
             {
                 Assert(arguments.SequenceEqual(new[] { "--list-extensions", "--show-versions" }), "Helper check omitted installed versions.");
                 return Task.FromResult("other.extension@99.0.0\r\n" +
-                    (current == null ? "" : "jaeskang0.kiroling-bridge@" + current + "\r\n"));
+                    (current == null ? "" : "jaeskang0.kiro-agent-pet-bridge@" + current + "\r\n"));
             }
             Assert(arguments.SequenceEqual(new[] { "--install-extension", helperArchive, "--force" }), "Helper installation used the wrong package.");
             installs++; current = "0.4.0";
@@ -79,11 +79,59 @@ try
         await IdeBridge.EnsureInstalled(helperArchive, arguments =>
         {
             Assert(arguments[0] == "--list-extensions", "Invalid installed version caused an installation.");
-            return Task.FromResult("jaeskang0.kiroling-bridge@invalid");
+            return Task.FromResult("jaeskang0.kiro-agent-pet-bridge@invalid");
         });
     }
     catch (InvalidDataException) { invalidVersionRejected = true; }
     Assert(invalidVersionRejected, "Invalid installed helper version was accepted.");
+    foreach (string? initial in new string?[] { null, "0.4.0", "0.4.1" })
+    {
+        string? current = initial;
+        bool oldPresent = true;
+        int installs = 0, removals = 0;
+        Task<string> RunReplacement(IReadOnlyList<string> arguments)
+        {
+            if (arguments[0] == "--list-extensions")
+                return Task.FromResult((current == null ? "" : "jaeskang0.kiro-agent-pet-bridge@" + current + "\n") +
+                    (oldPresent ? "jaeskang0.kiroling-bridge@0.4.1\n" : ""));
+            if (arguments[0] == "--install-extension")
+            {
+                installs++;
+                current = "0.4.0";
+                return Task.FromResult("installed");
+            }
+            Assert(arguments.SequenceEqual(new[] { "--uninstall-extension", "jaeskang0.kiroling-bridge" }),
+                "Replacement removed the wrong extension.");
+            Assert(current != null && Version.Parse(current) >= new Version(0, 4, 0),
+                "The old helper was removed before the new helper was verified.");
+            removals++;
+            oldPresent = false;
+            return Task.FromResult("removed");
+        }
+        Assert(await IdeBridge.EnsureInstalled(helperArchive, RunReplacement), "Old helper replacement was not reported.");
+        Assert(!oldPresent && removals == 1 && installs == (initial == null ? 1 : 0), "Incorrect clean-install replacement.");
+        Assert(!await IdeBridge.EnsureInstalled(helperArchive, RunReplacement), "Clean-install replacement was not idempotent.");
+        Assert(removals == 1, "Repeat startup removed the old helper again.");
+    }
+    foreach (bool failInstall in new[] { false, true })
+    {
+        bool removalAttempted = false;
+        bool failed = false;
+        try
+        {
+            await IdeBridge.EnsureInstalled(helperArchive, arguments =>
+            {
+                if (arguments[0] == "--list-extensions")
+                    return Task.FromResult((failInstall ? "" : "jaeskang0.kiro-agent-pet-bridge@0.4.0\n") +
+                        "jaeskang0.kiroling-bridge@0.4.1\n");
+                if (arguments[0] == "--uninstall-extension") removalAttempted = true;
+                return Task.FromResult("");
+            });
+        }
+        catch (InvalidOperationException) { failed = true; }
+        Assert(failed, "An unconfirmed clean install was reported as successful.");
+        Assert(removalAttempted != failInstall, "A failed new install removed the old helper.");
+    }
     Console.WriteLine("Automatic IDE helper setup and repeat startup PASS");
 
     var primary = new DisplayArea(0, 0, 1920, 1152, 1, true);
@@ -380,19 +428,22 @@ try
         int agentPort = int.Parse(portLine.Result!);
         now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var endpoint = new IdeEndpoint(Environment.ProcessId, startedAt, now,
-            "kiro://jaeskang0.kiroling-bridge/open?windowId=1", [temporary], [done.SessionId], 1, agentPort);
+            "kiro://jaeskang0.kiro-agent-pet-bridge/open?windowId=1", [temporary], [done.SessionId], 1, agentPort);
         string endpointFile = PetPaths.InData(Path.Combine("ide-endpoints", Environment.ProcessId + ".json"));
         var remoteAgent = new NativeSession { SessionId = done.SessionId, Source = "ide", Workspace = temporary, OwnerPid = agentHelper.Id };
         PetStore.WriteFile(endpointFile, endpoint);
         Assert(agentHelper.Id != endpoint.Pid && IdeBridge.Locate(remoteAgent)?.Pid == Environment.ProcessId,
             "The owning IDE window was not found when its agent and bridge use different processes.");
+        PetStore.WriteFile(endpointFile, endpoint with { Uri = "kiro://jaeskang0.kiroling-bridge/open?windowId=1" });
+        Assert(IdeBridge.Locate(remoteAgent) == null, "The retired bridge was accepted as the new helper.");
+        PetStore.WriteFile(endpointFile, endpoint);
         Assert(IdeBridge.Locate(done) == null, "A different agent process was accepted for this IDE window.");
         string ambiguousFile = PetPaths.InData(Path.Combine("ide-endpoints", agentHelper.Id + ".json"));
         PetStore.WriteFile(ambiguousFile, endpoint with
         {
             Pid = agentHelper.Id,
             StartedAt = new DateTimeOffset(agentHelper.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds(),
-            WindowId = 2, Uri = "kiro://jaeskang0.kiroling-bridge/open?windowId=2"
+            WindowId = 2, Uri = "kiro://jaeskang0.kiro-agent-pet-bridge/open?windowId=2"
         });
         Assert(IdeBridge.Locate(remoteAgent) == null, "Ambiguous IDE windows silently selected the first match.");
         File.Delete(ambiguousFile);

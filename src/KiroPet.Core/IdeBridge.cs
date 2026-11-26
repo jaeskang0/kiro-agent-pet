@@ -13,6 +13,9 @@ public sealed record IdeSetupResult(bool Changed, bool ReloadRequired, string Me
 
 public static class IdeBridge
 {
+    private const string BridgeId = "jaeskang0.kiro-agent-pet-bridge";
+    private const string OldBridgeId = "jaeskang0.kiroling-bridge";
+
     private static string Editor => Environment.GetEnvironmentVariable("KIRO_EDITOR") ??
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Kiro", "Kiro.exe");
 
@@ -44,7 +47,7 @@ public static class IdeBridge
                     endpoint.StartedAt <= 0 || endpoint.UpdatedAt <= 0 ||
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - endpoint.UpdatedAt is < -1000 or > 10000 ||
                     !Uri.TryCreate(endpoint.Uri, UriKind.Absolute, out var uri) ||
-                    uri.Scheme != "kiro" || uri.Host != "jaeskang0.kiroling-bridge" || uri.AbsolutePath != "/open") continue;
+                    uri.Scheme != "kiro" || uri.Host != BridgeId || uri.AbsolutePath != "/open") continue;
                 using var process = Process.GetProcessById(endpoint.Pid);
                 long started = new DateTimeOffset(process.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds();
                 if (process.HasExited || Math.Abs(started - endpoint.StartedAt) > 5000) continue;
@@ -162,7 +165,7 @@ public static class IdeBridge
             return new(false, false, "Automatic IDE helper setup currently supports Windows only.");
         string editor = Editor;
         string cli = Path.Combine(Path.GetDirectoryName(editor), "resources", "app", "out", "cli.js");
-        string vsix = Environment.GetEnvironmentVariable("KIRO_PET_IDE_VSIX") ?? Path.Combine(AppContext.BaseDirectory, "kiroling-bridge.vsix");
+        string vsix = Environment.GetEnvironmentVariable("KIRO_PET_IDE_VSIX") ?? Path.Combine(AppContext.BaseDirectory, "kiro-agent-pet-bridge.vsix");
         if (!File.Exists(editor) || !File.Exists(cli))
             return new(false, false, "Kiro IDE was not found. CLI monitoring works independently. Restart Kiro Agent Pet after installing Kiro IDE.");
         if (!File.Exists(vsix)) throw new FileNotFoundException("The IDE bridge is missing. Use the complete Kiro Agent Pet ZIP.");
@@ -190,28 +193,46 @@ public static class IdeBridge
         using var stream = entry.Open();
         using var manifest = JsonDocument.Parse(stream);
         var package = manifest.RootElement;
-        const string id = "jaeskang0.kiroling-bridge";
-        if (package.GetProperty("publisher").GetString() + "." + package.GetProperty("name").GetString() != id ||
+        if (package.GetProperty("publisher").GetString() + "." + package.GetProperty("name").GetString() != BridgeId ||
             !Version.TryParse(package.GetProperty("version").GetString(), out var bundled))
             throw new InvalidDataException("The bundled IDE helper has an invalid identity or version.");
-        async Task<Version> InstalledVersion()
+        async Task<(Version Current, bool Old)> Installed()
         {
             string output = await run(["--list-extensions", "--show-versions"]);
             Version newest = null;
+            bool old = false;
             foreach (string line in output.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!line.StartsWith(id + "@", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!Version.TryParse(line[(id.Length + 1)..], out var version))
+                if (line.StartsWith(OldBridgeId + "@", StringComparison.OrdinalIgnoreCase))
+                {
+                    old = true;
+                    continue;
+                }
+                if (!line.StartsWith(BridgeId + "@", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!Version.TryParse(line[(BridgeId.Length + 1)..], out var version))
                     throw new InvalidDataException("Kiro reported an invalid helper version; the installed helper was left alone.");
                 if (newest == null || version > newest) newest = version;
             }
-            return newest;
+            return (newest, old);
         }
-        if (await InstalledVersion() is { } installed && installed >= bundled) return false;
-        await run(["--install-extension", vsix, "--force"]);
-        if (await InstalledVersion() is not { } updated || updated < bundled)
-            throw new InvalidOperationException("Kiro did not confirm installing the IDE helper. Restart Kiro Agent Pet to retry.");
-        return true;
+        var installed = await Installed();
+        bool changed = false;
+        if (installed.Current == null || installed.Current < bundled)
+        {
+            await run(["--install-extension", vsix, "--force"]);
+            installed = await Installed();
+            if (installed.Current == null || installed.Current < bundled)
+                throw new InvalidOperationException("Kiro did not confirm installing the IDE helper. Restart Kiro Agent Pet to retry.");
+            changed = true;
+        }
+        if (installed.Old)
+        {
+            await run(["--uninstall-extension", OldBridgeId]);
+            if ((await Installed()).Old)
+                throw new InvalidOperationException("Kiro did not confirm removing the old IDE helper. Restart Kiro Agent Pet to retry.");
+            changed = true;
+        }
+        return changed;
     }
 
     private static async Task<string> RunEditorCli(string editor, string cli, IReadOnlyList<string> arguments)

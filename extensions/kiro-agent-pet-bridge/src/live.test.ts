@@ -28,20 +28,20 @@ async function bounded<T>(operation: Thenable<T>, label: string): Promise<T> {
 
 export async function run(): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!folder || !path.basename(folder).startsWith("kiroling-ide-probe-")) throw new Error("Live test requires its own temporary workspace.");
+  if (!folder || !path.basename(folder).startsWith("kiro-agent-pet-ide-probe-")) throw new Error("Live test requires its own temporary workspace.");
   const resultFile = path.join(folder, "live-result.json");
   const root = dataRoot(process.platform, process.env);
   let sessionId: string | undefined;
   try {
     const agent = vscode.extensions.getExtension("kiro.kiroAgent");
-    const bridge = vscode.extensions.getExtension("jaeskang0.kiroling-bridge");
+    const bridge = vscode.extensions.getExtension("jaeskang0.kiro-agent-pet-bridge");
     if (!agent || !bridge) throw new Error("Kiro or the development bridge is unavailable.");
     await bounded(agent.activate(), "Kiro activation");
     await bounded(bridge.activate(), "Bridge activation");
     const result: unknown = await bounded(vscode.commands.executeCommand("kiroAgent.sessions.create"), "Verification chat creation");
     sessionId = record(result) ? parseSessionId(result.sessionId) : undefined;
     if (!sessionId) throw new Error("Kiro did not create the empty verification chat.");
-    const endpoint = await waitJson(path.join(root, "ide-endpoints", `${process.pid}.json`));
+    const endpoint = await waitJson(path.join(root, "ide-endpoints", `${process.pid}-${bridge.id}.json`));
     if (!record(endpoint) || typeof endpoint.uri !== "string" || endpoint.pid !== process.pid ||
       typeof endpoint.windowId !== "number" || typeof endpoint.agentPort !== "number") throw new Error("IDE endpoint registration failed.");
     const lease: unknown = await waitJson(path.join(process.env.KIRO_NATIVE_HOME ?? path.join(process.env.USERPROFILE ?? "", ".kiro"), "session-leases", `${sessionId}.lease`));

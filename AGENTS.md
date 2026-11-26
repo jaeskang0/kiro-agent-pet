@@ -12,7 +12,7 @@ Read `README.md` for supported behavior and `docs/architecture.md` for module ow
 
 ## Compatibility
 
-- The product and repository are named Kiro Agent Pet. Keep `kiro-pet` commands, the `%LOCALAPPDATA%\KiroPet` data folder, and the bridge ID `jaeskang0.kiroling-bridge` compatible with existing installations.
+- The product and repository are named Kiro Agent Pet. Keep `kiro-pet` commands and the `%LOCALAPPDATA%\KiroPet` data folder compatible with existing installations. The app installs `jaeskang0.kiro-agent-pet-bridge` and removes the old extension ID after confirming the new one.
 - Keep imported pets, generated phrase packs, saved positions, settings, and acknowledgements in the user data folder across updates. The only bundled pet is the original MIT-licensed Spark. Do not add imported or third-party pet artwork to releases without redistribution rights.
 - The pet reads Kiro's native session files. It does not require Kiro task hooks. The IDE bridge opens an exact chat; Windows CLI navigation supports verified consoles and single-pane Windows Terminal tabs. Ambiguous targets stay unread.
 - Priority is Needs input, error, unread Done, working, then idle. Repeated clicks cycle agents at the highest active priority. Idle hover has no bubble; an idle click shows a temporary phrase without opening an IDE.
