@@ -92,6 +92,8 @@ The right-click menu offers a playback speed slider from 0.10× to 10.00×, an i
 
 ## Build from source
 
+Coding agents should read [AGENTS.md](AGENTS.md) and the [architecture notes](docs/architecture.md) before changing the project.
+
 Install the .NET 10 SDK, then run:
 
 ```powershell
