@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text.Json;
 
 namespace KiroPet;
@@ -8,6 +9,7 @@ public sealed record IdeReply(string RequestId, string SessionId, int BridgePid,
 public sealed record IdeViewed(string SessionId, string CompletionId);
 public sealed record IdeStatus(string SessionId, string Status, string CompletionId, int WindowId, int AgentPid);
 public sealed record IdeEndpoint(int Pid, long StartedAt, long UpdatedAt, string Uri, string[] WorkspacePaths, string[] SessionIds, int WindowId, int AgentPort);
+public sealed record IdeSetupResult(bool Changed, bool ReloadRequired, string Message);
 
 public static class IdeBridge
 {
@@ -98,7 +100,7 @@ public static class IdeBridge
                 return new(false, error.Message);
             }
         }
-        if (endpoint == null) return new(false, "The bridge for this Kiro window is not connected. Enable Kiro IDE chat opening from the pet menu, then open or reload that IDE window.");
+        if (endpoint == null) return new(false, "The helper for this Kiro window is not connected. If automatic setup is still running, wait for it to finish. Otherwise reload this IDE window. Connection health in the pet menu shows setup errors.");
         int agentPid = SocketOwners.Read().GetValueOrDefault(endpoint.AgentPort);
         if (agentPid <= 0) return new(false, "Kiro's agent connection changed. Try opening the chat again.");
         string id = Guid.NewGuid().ToString("N");
@@ -126,7 +128,7 @@ public static class IdeBridge
                 }
                 await Task.Delay(100);
             }
-            return new(false, "Kiro did not confirm opening this chat. Enable Kiro IDE navigation from the pet menu, then try again.");
+            return new(false, "Kiro did not confirm opening this chat. Reload this IDE window, then try again.");
         }
         catch (Exception error) when (error is IOException or JsonException or System.ComponentModel.Win32Exception)
         {
@@ -154,29 +156,84 @@ public static class IdeBridge
         }
     }
 
-    public static async Task<string> Install()
+    public static async Task<IdeSetupResult> EnsureInstalled()
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Install the bundled VSIX from Kiro's Extensions menu on this system.");
+        if (!OperatingSystem.IsWindows())
+            return new(false, false, "Automatic IDE helper setup currently supports Windows only.");
         string editor = Editor;
         string cli = Path.Combine(Path.GetDirectoryName(editor), "resources", "app", "out", "cli.js");
         string vsix = Environment.GetEnvironmentVariable("KIRO_PET_IDE_VSIX") ?? Path.Combine(AppContext.BaseDirectory, "kiroling-bridge.vsix");
-        if (!File.Exists(editor) || !File.Exists(cli)) throw new FileNotFoundException("Kiro IDE is not installed at the expected location.");
+        if (!File.Exists(editor) || !File.Exists(cli))
+            return new(false, false, "Kiro IDE was not found. CLI monitoring works independently. Restart Kiroling after installing Kiro IDE.");
         if (!File.Exists(vsix)) throw new FileNotFoundException("The IDE bridge is missing. Use the complete Kiroling ZIP.");
+        bool editorRunning = false;
+        foreach (var candidate in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(editor)))
+        {
+            using (candidate)
+            {
+                try { editorRunning |= string.Equals(candidate.MainModule?.FileName, editor, StringComparison.OrdinalIgnoreCase); }
+                catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+            }
+        }
+        bool changed = await EnsureInstalled(vsix, arguments => RunEditorCli(editor, cli, arguments));
+        return new(changed, changed && editorRunning, changed
+            ? editorRunning
+                ? "Kiro helper installed or updated. In each open Kiro window, use Ctrl+Shift+P → Developer: Reload Window."
+                : "Kiro helper installed or updated. Open Kiro normally."
+            : "Kiro helper is up to date.");
+    }
+
+    internal static async Task<bool> EnsureInstalled(string vsix, Func<IReadOnlyList<string>, Task<string>> run)
+    {
+        using var archive = ZipFile.OpenRead(vsix);
+        var entry = archive.GetEntry("extension/package.json") ?? throw new InvalidDataException("The bundled IDE helper has no manifest.");
+        using var stream = entry.Open();
+        using var manifest = JsonDocument.Parse(stream);
+        var package = manifest.RootElement;
+        const string id = "jaeskang0.kiroling-bridge";
+        if (package.GetProperty("publisher").GetString() + "." + package.GetProperty("name").GetString() != id ||
+            !Version.TryParse(package.GetProperty("version").GetString(), out var bundled))
+            throw new InvalidDataException("The bundled IDE helper has an invalid identity or version.");
+        async Task<Version> InstalledVersion()
+        {
+            string output = await run(["--list-extensions", "--show-versions"]);
+            Version newest = null;
+            foreach (string line in output.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!line.StartsWith(id + "@", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!Version.TryParse(line[(id.Length + 1)..], out var version))
+                    throw new InvalidDataException("Kiro reported an invalid helper version; the installed helper was left alone.");
+                if (newest == null || version > newest) newest = version;
+            }
+            return newest;
+        }
+        if (await InstalledVersion() is { } installed && installed >= bundled) return false;
+        await run(["--install-extension", vsix, "--force"]);
+        if (await InstalledVersion() is not { } updated || updated < bundled)
+            throw new InvalidOperationException("Kiro did not confirm installing the IDE helper. Restart Kiroling to retry.");
+        return true;
+    }
+
+    private static async Task<string> RunEditorCli(string editor, string cli, IReadOnlyList<string> arguments)
+    {
         var start = new ProcessStartInfo(editor)
         {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true
         };
         start.Environment["ELECTRON_RUN_AS_NODE"] = "1";
         start.ArgumentList.Add(cli);
-        start.ArgumentList.Add("--install-extension");
-        start.ArgumentList.Add(vsix);
-        start.ArgumentList.Add("--force");
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Kiro's extension installer did not start.");
+        foreach (string argument in arguments) start.ArgumentList.Add(argument);
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Kiro's extension setup command did not start.");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        if (process.ExitCode != 0) throw new InvalidOperationException("Kiro could not install the IDE bridge. " + await error);
-        await output;
-        return "IDE navigation is enabled. If Kiro was already running, reload its window before using the bridge.";
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited) process.Kill(true);
+            throw new TimeoutException("Kiro helper setup timed out. Restart Kiroling to retry.");
+        }
+        if (process.ExitCode != 0) throw new InvalidOperationException("Kiro helper setup failed. " + await error);
+        return await output;
     }
 }

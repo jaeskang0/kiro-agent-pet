@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="KiroPet.Checks" />
+  </ItemGroup>
   <PropertyGroup>
     <Nullable>disable</Nullable>
   </PropertyGroup>

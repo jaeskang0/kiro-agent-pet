@@ -2,7 +2,7 @@
 
 This companion extension lets the Kiroling desktop pet open an exact Kiro IDE chat.
 
-Use **Enable Kiro IDE chat opening…** in the pet's right-click menu to install it. If Kiro was already running, reload its window once after installation.
+The desktop pet installs or updates this extension automatically when it starts. If Kiro is already running when the extension changes, reload its window once using **Ctrl+Shift+P → Developer: Reload Window**.
 
 Clicking the pet or its bubble opens the selected IDE chat in an editor tab. Kiroling marks that result read only after the requested chat tab is active in a focused Kiro window.
 

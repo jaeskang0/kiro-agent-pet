@@ -7,15 +7,22 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace KiroPet {
+    [JsonConverter(typeof(JsonStringEnumConverter<CliHost>))]
+    public enum CliHost { Unknown, Standalone, Herdr }
+
     public sealed class NativeSession {
         public string Key { get; set; }
         public string SessionId { get; set; }
         public string Source { get; set; }
+        public CliHost Host { get; set; }
         public int OwnerPid { get; set; }
+        public long OwnerStartedUtcTicks { get; set; }
+        public long LeaseAcquiredAt { get; set; }
         public string Title { get; set; }
         public string Workspace { get; set; }
         public string WorkspaceKey { get; set; }
@@ -244,16 +251,20 @@ namespace KiroPet {
         private NativeSnapshot latest = new NativeSnapshot { Recovering = true, Health = new[] { "Discovering Kiro sessions..." } };
         private bool disposed;
         private readonly DateTime beganAt = DateTime.UtcNow;
+        private readonly Func<int, CliHost> classifyHost;
 
-        public NativeReader(string kiroHome, string cachePath, bool persistCache) {
+        public NativeReader(string kiroHome, string cachePath, bool persistCache, Func<int, CliHost> hostClassifier = null) {
             root = Path.GetFullPath(kiroHome);
             cache = cachePath;
             persist = persistCache;
+            classifyHost = hostClassifier ?? ProcessAncestry.Classify;
             if (System.IO.File.Exists(cache)) {
                 try {
                     foreach (var session in JsonSerializer.Deserialize<NativeSession[]>(System.IO.File.ReadAllText(cache)) ?? Array.Empty<NativeSession>()) {
                         if (session.SessionId != null && session.Key == "kiro:" + session.SessionId &&
-                            (session.Status == "done" || session.Status == "error") && !string.IsNullOrEmpty(session.CompletionId)) {
+                            !PhrasePacks.IsJobWorkspace(session.Workspace) &&
+                            (session.Host == CliHost.Herdr || (session.Status == "done" || session.Status == "error") &&
+                            !string.IsNullOrEmpty(session.CompletionId))) {
                             session.Closed = true;
                             session.Disconnected = true;
                             remembered[session.SessionId] = session;
@@ -279,6 +290,7 @@ namespace KiroPet {
         public NativeSnapshot ReadNow() {
             if (DateTime.UtcNow >= nextDiscovery) { Discover(); nextDiscovery = DateTime.UtcNow.AddSeconds(1); }
             foreach (var item in tracked.Values) {
+                if (item.Metadata.Host == CliHost.Herdr) continue;
                 if (!item.Live && !item.Recovering && !item.Main.Behind) continue;
                 try { ReadEvents(item); }
                 catch (IOException) { health.Add("A session event file is temporarily unavailable; retrying."); }
@@ -286,6 +298,15 @@ namespace KiroPet {
             }
             var sessions = new List<NativeSession>(remembered.Values.Where(s => !tracked.ContainsKey(s.SessionId)));
             foreach (var item in tracked.Values) {
+                if (item.Metadata.Host == CliHost.Herdr) {
+                    var marker = Copy(item.Metadata);
+                    marker.Status = "idle";
+                    marker.CompletionId = null;
+                    marker.Closed = marker.Disconnected = !item.Live;
+                    sessions.Add(marker);
+                    remembered[marker.SessionId] = Copy(marker);
+                    continue;
+                }
                 if (!item.Live && !item.WasLive && item.Turn.Updated < new DateTimeOffset(beganAt).ToUnixTimeMilliseconds()) continue;
                 var session = Copy(item.Metadata);
                 session.Closed = !item.Live;
@@ -305,15 +326,16 @@ namespace KiroPet {
             if (json != lastJson) {
                 lastJson = json;
                 version++;
-                if (persist && !sessions.Any(s => s.Status == "recovering")) SaveCache(json);
+                if (persist && !sessions.Any(s => s.Host != CliHost.Herdr && s.Status == "recovering")) SaveCache(json);
             }
             var notes = health.Distinct().ToList();
             if (!Directory.Exists(Path.Combine(root, "sessions"))) notes.Add("No native Kiro session store found. Start Kiro IDE or CLI V3.");
-            else if (!tracked.Values.Any(s => s.Live)) notes.Add("No live Kiro sessions. The pet is resting; unread completions remain available.");
+            else if (!tracked.Values.Any(s => s.Live && s.Metadata.Host != CliHost.Herdr))
+                notes.Add("No live Kiro sessions. The pet is resting; unread completions remain available.");
             else notes.Add("Automatically monitoring Kiro IDE and CLI V3. No workspace hooks are needed.");
             return new NativeSnapshot {
-                Sessions = sessions.ToArray(), Health = notes.ToArray(), Version = version,
-                Recovering = tracked.Values.Any(s => s.Live && s.Recovering)
+                Sessions = sessions.Where(s => s.Host != CliHost.Herdr).ToArray(), Health = notes.ToArray(), Version = version,
+                Recovering = tracked.Values.Any(s => s.Live && s.Metadata.Host != CliHost.Herdr && s.Recovering)
             };
         }
 
@@ -326,6 +348,8 @@ namespace KiroPet {
             var live = new Dictionary<string, string>();
             var acquiredTimes = new Dictionary<string, long>();
             var ownerPids = new Dictionary<string, int>();
+            var hosts = new Dictionary<string, CliHost>();
+            var hostsByPid = new Dictionary<int, CliHost>();
             var knownSources = new Dictionary<string, string>();
             var processes = new Dictionary<int, DateTime?>();
             foreach (string file in Directory.EnumerateFiles(leaseRoot, "sess_*.lease")) {
@@ -367,6 +391,13 @@ namespace KiroPet {
                         live[id] = source;
                         acquiredTimes[id] = acquired;
                         ownerPids[id] = pid;
+                        if (source == "cli") {
+                            if (!hostsByPid.TryGetValue(pid, out var host)) {
+                                host = classifyHost(pid);
+                                hostsByPid[pid] = host;
+                            }
+                            hosts[id] = host;
+                        }
                     }
                 } catch (IOException) {} catch (JsonException) {}
             }
@@ -374,6 +405,7 @@ namespace KiroPet {
                 foreach (string directory in Directory.EnumerateDirectories(group, "sess_*")) {
                     string id = Path.GetFileName(directory);
                     bool isLive = live.TryGetValue(id, out string source);
+                    if (!isLive && remembered.TryGetValue(id, out var cached) && cached.Host == CliHost.Herdr) continue;
                     if (!isLive && (!knownSources.TryGetValue(id, out source) ||
                         System.IO.File.GetLastWriteTimeUtc(Path.Combine(directory, "messages.jsonl")) < beganAt)) continue;
                     string metadata = Path.Combine(directory, "session.json");
@@ -393,9 +425,18 @@ namespace KiroPet {
                                     paths.ValueKind != JsonValueKind.Array || paths.GetArrayLength() == 0 ||
                                     paths[0].ValueKind != JsonValueKind.String) continue;
                                 string workspace = Path.GetFullPath(paths[0].GetString());
+                                if (PhrasePacks.IsJobWorkspace(workspace)) {
+                                    tracked.Remove(id);
+                                    remembered.Remove(id);
+                                    metadataVersions.Remove(id);
+                                    continue;
+                                }
+                                CliHost previousHost = item?.Metadata.Host ??
+                                    (remembered.TryGetValue(id, out var cachedSession) ? cachedSession.Host : CliHost.Unknown);
                                 var session = new NativeSession {
                                     Key = "kiro:" + id, SessionId = id, Source = source, Title = Text(data, "title"),
-                                    Workspace = workspace, WorkspaceKey = Hash(workspace), Status = "idle"
+                                    Workspace = workspace, WorkspaceKey = Hash(workspace), Status = "idle",
+                                    Host = hosts.TryGetValue(id, out var detected) && detected != CliHost.Unknown ? detected : previousHost
                                 };
                                 if (item == null) {
                                     item = new Tracked {
@@ -412,8 +453,12 @@ namespace KiroPet {
                         item.Live = isLive;
                         item.WasLive |= isLive;
                         if (isLive) {
+                            if (hosts.TryGetValue(id, out var detected) && detected != CliHost.Unknown)
+                                item.Metadata.Host = detected;
                             item.LeaseAcquired = acquiredTimes[id];
                             item.Metadata.OwnerPid = ownerPids[id];
+                            item.Metadata.OwnerStartedUtcTicks = processes[ownerPids[id]].Value.Ticks;
+                            item.Metadata.LeaseAcquiredAt = acquiredTimes[id];
                         }
                     } catch (IOException) { health.Add("Waiting for a Kiro session's metadata to become readable."); }
                     catch (JsonException) { health.Add("Waiting for complete Kiro session metadata."); }
@@ -481,6 +526,8 @@ namespace KiroPet {
         private static NativeSession Copy(NativeSession session) {
             return new NativeSession {
                 Key = session.Key, SessionId = session.SessionId, Source = session.Source, Title = session.Title, OwnerPid = session.OwnerPid,
+                Host = session.Host,
+                OwnerStartedUtcTicks = session.OwnerStartedUtcTicks, LeaseAcquiredAt = session.LeaseAcquiredAt,
                 Workspace = session.Workspace, WorkspaceKey = session.WorkspaceKey, Status = session.Status,
                 CompletionId = session.CompletionId, Timestamp = session.Timestamp, Closed = session.Closed,
                 Disconnected = session.Disconnected, Event = session.Event

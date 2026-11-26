@@ -33,8 +33,8 @@ jobs:
       - name: Publish Windows commands
         run: dotnet publish src/KiroPet.Cli -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/cli
       - name: Package portable Windows build
-        run: dotnet run --project tools/KiroPet.Package -c Release --no-build -- artifacts/publish artifacts/kiroling-0.4.0-windows.zip
+        run: dotnet run --project tools/KiroPet.Package -c Release --no-build -- artifacts/publish artifacts/kiroling-0.4.1-windows.zip
       - uses: actions/upload-artifact@v4
         with:
           name: kiroling-windows
-          path: artifacts/kiroling-0.4.0-windows.zip*
+          path: artifacts/kiroling-0.4.1-windows.zip*

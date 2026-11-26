@@ -14,6 +14,8 @@ public sealed class PetDefinition
 {
     public string Key { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Kind { get; set; } = "";
     public int SpriteVersionNumber { get; set; } = 1;
     public int[][]? FrameColumns { get; set; }
     public int? HighestVisiblePixel { get; set; }
@@ -31,7 +33,7 @@ public sealed class PetArtwork : IDisposable
 
     public static List<PetDefinition> Catalog()
     {
-        var result = new List<PetDefinition> { new() { Key = "spark", DisplayName = "Spark", SpritePath = "avares://KiroPet.Desktop/Assets/spark.png" } };
+        var result = new List<PetDefinition> { new() { Key = "spark", DisplayName = "Spark", Description = "A gentle little glowing desktop companion.", Kind = "original character", SpritePath = "avares://KiroPet.Desktop/Assets/spark.png" } };
         string root = PetPaths.InData("pets");
         if (!Directory.Exists(root)) return result;
         foreach (string directory in Directory.EnumerateDirectories(root))
@@ -95,29 +97,16 @@ public sealed class PetArtwork : IDisposable
         }
         if (available[0].Length == 0) throw new InvalidDataException("The pet has no visible idle frames.");
         Top = highest;
-        Add("idle", 0, [0,1,2,3,4,5,4,3,2,1]);
-        Add("walk-right", 1, [0,1,2,3,4,5,6,7]);
-        Add("walk-left", 2, [0,1,2,3,4,5,6,7]);
-        Add("wave", 3, [0,1,2,3]);
-        Add("jump", 4, [0,1,2,3,4,3,2,1]);
-        Add("surprise", 5, [0,1,2,3,2,1]);
-        Add("sleep", 5, [5,4,4,5]);
-        Add("worry", 5, [3,6,7,6]);
-        Add("eat", 6, [0,1,2,3,4,5]);
-        Add("excited", 7, [0,1,2,3,4,5]);
-        Add("read", 8, [0,1,2,3,4,5]);
-        if (rows == 11) { Add("turn-right", 9, [0,1,2,3,4,5,6,7]); Add("turn-left", 10, [0,1,2,3,4,5,6,7]); }
-        for (int row = 0; row < rows; row++)
+        for (int row = 0; row < SpriteActions.Standard.Count; row++)
+            Add(SpriteActions.Standard[row], row);
+        if (rows == 11)
         {
-            var names = Clips.Where(pair => pair.Value.Row == row).Select(pair => pair.Key).ToArray();
-            var unused = available[row].Except(names.SelectMany(name => Clips[name].Columns)).ToArray();
-            if (unused.Length > 0 && names.Length > 0)
-                Clips[names[0]] = Clips[names[0]] with { Columns = Clips[names[0]].Columns.Concat(unused).ToArray() };
+            if (available[9].Length > 0) Add("turn-right", 9);
+            if (available[10].Length > 0) Add("turn-left", 10);
         }
-        void Add(string name, int row, int[] preferred)
+        void Add(string name, int row)
         {
-            int[] columns = preferred.Where(column => available[row].Contains(column)).ToArray();
-            if (columns.Length == 0) columns = available[row];
+            int[] columns = available[row];
             if (columns.Length == 0) { row = 0; columns = available[0]; }
             Clips[name] = new AnimationClip(row, columns);
         }
@@ -174,6 +163,8 @@ public sealed class PetArtwork : IDisposable
         using var data = JsonDocument.Parse(manifestBytes);
         string id = data.RootElement.GetProperty("id").GetString() ?? "";
         string name = data.RootElement.GetProperty("displayName").GetString() ?? "";
+        string description = Text(data.RootElement, "description", 1024);
+        string kind = Text(data.RootElement, "kind", 64);
         int version = data.RootElement.TryGetProperty("spriteVersionNumber", out var number) ? number.GetInt32() : 1;
         if (!Regex.IsMatch(id, "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$") || string.IsNullOrWhiteSpace(name) || name.Length > 64 || version is not (1 or 2))
             throw new InvalidDataException("Pet manifest has an invalid identity, name, or sprite version.");
@@ -191,12 +182,52 @@ public sealed class PetArtwork : IDisposable
                 using var image = SKImage.FromBitmap(bitmap);
                 using var png = image.Encode(SKEncodedImageFormat.Png, 100);
                 File.WriteAllBytes(Path.Combine(stage, "spritesheet.png"), png.ToArray());
-                PetStore.WriteFile(Path.Combine(stage, "pet.json"), new PetDefinition { Key = key, DisplayName = name.Trim(), SpriteVersionNumber = version });
+                PetStore.WriteFile(Path.Combine(stage, "pet.json"), new PetDefinition
+                {
+                    Key = key, DisplayName = name.Trim(), Description = description, Kind = kind, SpriteVersionNumber = version
+                });
                 Directory.Move(stage, destination);
             }
             finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }
         }
+        else
+        {
+            var existing = Catalog().Single(pet => pet.Key == key);
+            if (existing.Description != description || existing.Kind != kind)
+            {
+                existing.Description = description;
+                existing.Kind = kind;
+                PetStore.WriteFile(Path.Combine(destination, "pet.json"), existing);
+            }
+        }
         return Catalog().Single(pet => pet.Key == key);
+    }
+
+    private static string Text(JsonElement data, string name, int limit)
+    {
+        if (!data.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return "";
+        string text = value.GetString() ?? "";
+        return text.Length <= limit ? text : text[..limit];
+    }
+
+    public PersonalityRequest PreparePersonality()
+    {
+        string directory = PhrasePacks.CreateJobDirectory();
+        string portrait = Path.Combine(directory, "pet.png");
+        var idle = Clips["idle"];
+        using var encoded = new MemoryStream();
+        Frames[idle.Row][idle.Columns[0]].Save(encoded);
+        using var frame = SKBitmap.Decode(encoded.ToArray());
+        using var bitmap = new SKBitmap(192, 208);
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColor.Parse("#F9F7F3"));
+            canvas.DrawBitmap(frame, 0, 0);
+        }
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        File.WriteAllBytes(portrait, png.ToArray());
+        return new PersonalityRequest(Pet.Key, Pet.DisplayName, Pet.Description, Pet.Kind, portrait, directory);
     }
 
     private static byte[] Read(ZipArchiveEntry entry, long limit)

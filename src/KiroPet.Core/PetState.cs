@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace KiroPet;
 
@@ -25,10 +26,27 @@ public static class PetPaths
 
 public sealed class PetSettings
 {
-    public double Speed { get; set; } = 0.6;
+    public const int CurrentSpeedScale = 2;
+    public const double MinimumSpeed = 0.1, MaximumSpeed = 10;
+    public double Speed { get; set; } = 1;
+    public int SpeedScaleVersion { get; set; }
+    [JsonIgnore]
+    public double FrameMilliseconds => 900 / Speed;
     public double Duration { get; set; } = 14;
     public bool ReducedMotion { get; set; }
     public Dictionary<string, Dictionary<string, string[]>> Pets { get; set; } = new();
+    public Dictionary<string, bool> GeneratedMessages { get; set; } = new();
+
+    public bool UseGeneratedMessages(string petKey) =>
+        !GeneratedMessages.TryGetValue(petKey, out bool enabled) || enabled;
+
+    public string ClickReaction(string petKey, IEnumerable<string> availableActions)
+    {
+        var available = availableActions.ToHashSet();
+        if (Pets.TryGetValue(petKey, out var mapping) && mapping.TryGetValue("click", out var selected) &&
+            selected.FirstOrDefault(available.Contains) is { } action) return action;
+        return available.Contains("waving") ? "waving" : "idle";
+    }
 }
 
 public sealed class Selection
@@ -86,9 +104,29 @@ public static class PetStore
 
     public static PetSettings Settings()
     {
-        var settings = Read("settings.json", new PetSettings());
-        if (settings.Speed < 0.1 || settings.Speed > 2 || settings.Duration < 5 || settings.Duration > 120 || settings.Pets == null)
-            throw new InvalidDataException("Animation speed must be 0.1–2 and duration must be 5–120 seconds.");
+        var settings = Read("settings.json", new PetSettings { SpeedScaleVersion = PetSettings.CurrentSpeedScale });
+        settings.GeneratedMessages ??= new();
+        bool legacy = settings.SpeedScaleVersion == 0;
+        if (!double.IsFinite(settings.Speed) || settings.Speed < PetSettings.MinimumSpeed ||
+            settings.Speed > (legacy ? 2 : PetSettings.MaximumSpeed) ||
+            !double.IsFinite(settings.Duration) || settings.Duration < 5 || settings.Duration > 120 || settings.Pets == null ||
+            settings.SpeedScaleVersion is not (0 or PetSettings.CurrentSpeedScale))
+            throw new InvalidDataException("Animation speed must be 0.1–10 and duration must be 5–120 seconds.");
+        if (legacy)
+        {
+            settings.Speed *= 5;
+            settings.SpeedScaleVersion = PetSettings.CurrentSpeedScale;
+        }
+        bool changed = legacy;
+        foreach (var mapping in settings.Pets.Values)
+            foreach (string status in mapping.Keys.ToArray())
+            {
+                string[] actions = mapping[status].Select(SpriteActions.Normalize).Distinct().ToArray();
+                if (actions.SequenceEqual(mapping[status])) continue;
+                mapping[status] = actions;
+                changed = true;
+            }
+        if (changed) Write("settings.json", settings);
         return settings;
     }
 
@@ -113,6 +151,11 @@ public sealed class SessionSummary
     public Dictionary<string, int> Counts { get; init; } = new();
 }
 
+public sealed record SessionCursor(string Status, string Key)
+{
+    public static SessionCursor After(NativeSession session) => new(session.Status, session.Key);
+}
+
 public static class SessionPolicy
 {
     private static readonly Dictionary<string, int> Priority = new()
@@ -123,7 +166,7 @@ public static class SessionPolicy
     public static bool MarkRead(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged, string key, string completionId)
     {
         var current = sessions.FirstOrDefault(session => session.Key == key);
-        if (current == null || current.Status is not ("done" or "error") ||
+        if (current == null || current.Host == CliHost.Herdr || current.Status is not ("done" or "error") ||
             string.IsNullOrEmpty(completionId) || current.CompletionId != completionId ||
             acknowledged.TryGetValue(key, out var previous) && previous == completionId) return false;
         acknowledged[key] = completionId;
@@ -138,20 +181,30 @@ public static class SessionPolicy
 
     public static int PriorityOf(NativeSession session, Dictionary<string, string> acknowledged)
     {
+        if (session.Host == CliHost.Herdr) return 0;
         if (!Priority.TryGetValue(session.Status, out int rank)) return 0;
         if (session.Status is "done" or "error")
             return acknowledged.TryGetValue(session.Key, out var completion) && completion == session.CompletionId ? 0 : rank;
         return session.Closed || session.Disconnected ? 0 : rank;
     }
 
-    public static SessionSummary Summarize(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged)
+    public static SessionSummary Summarize(IEnumerable<NativeSession> sessions, Dictionary<string, string> acknowledged,
+        SessionCursor cursor = null)
     {
         var unread = sessions.Where(session => PriorityOf(session, acknowledged) > 0)
-            .OrderByDescending(session => PriorityOf(session, acknowledged)).ThenBy(session => session.Timestamp).ToArray();
+            .OrderByDescending(session => PriorityOf(session, acknowledged))
+            .ThenBy(session => session.Timestamp).ThenBy(session => session.Key, StringComparer.Ordinal).ToArray();
+        var target = unread.FirstOrDefault();
+        if (target != null && cursor?.Status == target.Status)
+        {
+            var peers = unread.Where(session => session.Status == cursor.Status)
+                .OrderBy(session => session.Key, StringComparer.Ordinal).ToArray();
+            target = peers.FirstOrDefault(session => string.CompareOrdinal(session.Key, cursor.Key) > 0) ?? peers[0];
+        }
         return new SessionSummary
         {
             Status = unread.FirstOrDefault()?.Status ?? "idle",
-            Target = unread.FirstOrDefault(),
+            Target = target,
             Counts = Priority.Keys.ToDictionary(status => status, status => unread.Count(session => session.Status == status))
         };
     }
