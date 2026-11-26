@@ -28,7 +28,7 @@ foreach (string component in new[] { "desktop", "cli" })
     }
 }
 foreach (string name in new[] { "README.md", "LICENSE", "THIRD-PARTY.md" }) files.Add(name, Path.Combine(project, name));
-string bridge = Path.Combine(project, "extensions", "kiroling-bridge", "kiroling-bridge-0.4.1.vsix");
+string bridge = Path.Combine(project, "extensions", "kiro-agent-pet-bridge", "kiroling-bridge-0.4.1.vsix");
 if (!File.Exists(bridge)) throw new FileNotFoundException("Build the Kiro IDE bridge with npm run package before packaging.", bridge);
 files.Add("kiroling-bridge.vsix", bridge);
 if (!files.ContainsKey("kiro-pet.exe") || !files.ContainsKey("KiroPet.Desktop.exe"))

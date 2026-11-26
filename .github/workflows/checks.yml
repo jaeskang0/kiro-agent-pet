@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
       - name: Build and verify Kiro IDE bridge
-        working-directory: extensions/kiroling-bridge
+        working-directory: extensions/kiro-agent-pet-bridge
         run: |
           npm ci --ignore-scripts
           npm run check

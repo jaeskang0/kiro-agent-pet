@@ -7,7 +7,7 @@ Read `README.md` for supported behavior and `docs/architecture.md` for module ow
 - `src/KiroPet.Core` owns native Kiro session discovery, status priority, acknowledgements, IDE and CLI navigation, phrase packs, persistent settings, and installation.
 - `src/KiroPet.Desktop` owns the floating window, sprites, animation, bubble, menus, and the session picker.
 - `src/KiroPet.Cli` owns the `kiro-pet` commands.
-- `extensions/kiroling-bridge` owns exact Kiro IDE chat opening and focus acknowledgements.
+- `extensions/kiro-agent-pet-bridge` owns exact Kiro IDE chat opening and focus acknowledgements.
 - `tests/KiroPet.Checks` covers core behavior and compatibility. `tools/KiroPet.Package` builds the portable Windows ZIP.
 
 ## Compatibility
@@ -19,7 +19,7 @@ Read `README.md` for supported behavior and `docs/architecture.md` for module ow
 
 ## Verify changes
 
-Run `dotnet build KiroPet.slnx -c Release`, `dotnet run --project tests/KiroPet.Checks -c Release --no-build`, and `npm --prefix extensions/kiroling-bridge run check` for relevant changes. Package the bridge with `npm --prefix extensions/kiroling-bridge run package` before making a Windows ZIP. The GitHub Actions workflow in `.github/workflows/checks.yml` is the release build reference.
+Run `dotnet build KiroPet.slnx -c Release`, `dotnet run --project tests/KiroPet.Checks -c Release --no-build`, and `npm --prefix extensions/kiro-agent-pet-bridge run check` for relevant changes. Package the bridge with `npm --prefix extensions/kiro-agent-pet-bridge run package` before making a Windows ZIP. The GitHub Actions workflow in `.github/workflows/checks.yml` is the release build reference.
 
 Do not commit local `artifacts`, imported pets, user data, credentials, or downloaded pet packs. Preserve unrelated workspace changes.
 

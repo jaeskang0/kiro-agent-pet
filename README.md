@@ -107,7 +107,7 @@ The CLI and desktop are separate executables. For a development CLI command, set
 To build the IDE bridge, use Node.js 22 or later:
 
 ```powershell
-cd extensions/kiroling-bridge
+cd extensions/kiro-agent-pet-bridge
 npm ci --ignore-scripts
 npm run check
 npm run package
