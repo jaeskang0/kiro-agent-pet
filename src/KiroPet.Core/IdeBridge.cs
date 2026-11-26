@@ -164,8 +164,8 @@ public static class IdeBridge
         string cli = Path.Combine(Path.GetDirectoryName(editor), "resources", "app", "out", "cli.js");
         string vsix = Environment.GetEnvironmentVariable("KIRO_PET_IDE_VSIX") ?? Path.Combine(AppContext.BaseDirectory, "kiroling-bridge.vsix");
         if (!File.Exists(editor) || !File.Exists(cli))
-            return new(false, false, "Kiro IDE was not found. CLI monitoring works independently. Restart Kiroling after installing Kiro IDE.");
-        if (!File.Exists(vsix)) throw new FileNotFoundException("The IDE bridge is missing. Use the complete Kiroling ZIP.");
+            return new(false, false, "Kiro IDE was not found. CLI monitoring works independently. Restart Kiro Agent Pet after installing Kiro IDE.");
+        if (!File.Exists(vsix)) throw new FileNotFoundException("The IDE bridge is missing. Use the complete Kiro Agent Pet ZIP.");
         bool editorRunning = false;
         foreach (var candidate in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(editor)))
         {
@@ -210,7 +210,7 @@ public static class IdeBridge
         if (await InstalledVersion() is { } installed && installed >= bundled) return false;
         await run(["--install-extension", vsix, "--force"]);
         if (await InstalledVersion() is not { } updated || updated < bundled)
-            throw new InvalidOperationException("Kiro did not confirm installing the IDE helper. Restart Kiroling to retry.");
+            throw new InvalidOperationException("Kiro did not confirm installing the IDE helper. Restart Kiro Agent Pet to retry.");
         return true;
     }
 
@@ -231,7 +231,7 @@ public static class IdeBridge
         catch (OperationCanceledException)
         {
             if (!process.HasExited) process.Kill(true);
-            throw new TimeoutException("Kiro helper setup timed out. Restart Kiroling to retry.");
+            throw new TimeoutException("Kiro helper setup timed out. Restart Kiro Agent Pet to retry.");
         }
         if (process.ExitCode != 0) throw new InvalidOperationException("Kiro helper setup failed. " + await error);
         return await output;

@@ -1,14 +1,14 @@
 {
   "name": "kiroling-bridge",
-  "displayName": "Kiroling IDE Bridge",
-  "description": "Opens and tracks the exact Kiro IDE chat selected by Kiroling.",
+  "displayName": "Kiro Agent Pet IDE Bridge",
+  "description": "Opens and tracks the exact Kiro IDE chat selected by Kiro Agent Pet.",
   "publisher": "jaeskang0",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/jaeskang0/kiro-agent-pet.git"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "engines": {
     "vscode": "^1.106.0"
@@ -21,7 +21,7 @@
   "scripts": {
     "build": "tsc -p .",
     "check": "npm run build && node --test out/protocol.test.js",
-    "package": "npm run build && vsce package --no-dependencies --out kiroling-bridge-0.4.0.vsix"
+    "package": "npm run build && vsce package --no-dependencies --out kiroling-bridge-0.4.1.vsix"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

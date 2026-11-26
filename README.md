@@ -6,17 +6,17 @@ Kiro Agent Pet is written in C# with Avalonia. Windows has been tested. Avalonia
 
 ## Run on Windows
 
-1. Download [kiroling-0.4.1-windows.zip](https://github.com/jaeskang0/kiro-agent-pet/releases/download/v0.4.1/kiroling-0.4.1-windows.zip) from the [Kiro Agent Pet v0.4.1 for Windows release](https://github.com/jaeskang0/kiro-agent-pet/releases/tag/v0.4.1).
+1. Download [kiro-agent-pet-0.4.2-windows.zip](https://github.com/jaeskang0/kiro-agent-pet/releases/download/v0.4.2/kiro-agent-pet-0.4.2-windows.zip) from the [Kiro Agent Pet v0.4.2 for Windows release](https://github.com/jaeskang0/kiro-agent-pet/releases/tag/v0.4.2).
 2. Extract the ZIP.
 3. Double-click **`KiroPet.Desktop.exe`** to launch the pet.
 
-No terminal or installation is needed for this portable mode. Keep the extracted folder wherever you want to run Kiroling from. Your pets and settings are saved separately and persist across launches.
+No terminal or installation is needed for this portable mode. Keep the extracted folder wherever you want to run Kiro Agent Pet from. Your pets and settings are saved separately and persist across launches.
 
 `kiro-pet.exe` is the optional command-line tool. Use `KiroPet.Desktop.exe` when launching from File Explorer.
 
 ## Optional installation on Windows
 
-To copy Kiroling to a permanent per-user location and add its terminal commands, open a terminal in the extracted folder and run:
+To copy Kiro Agent Pet to a permanent per-user location and add its terminal commands, open a terminal in the extracted folder and run:
 
 ```powershell
 .\kiro-pet.exe install
@@ -30,7 +30,7 @@ kiro-pet start
 
 Installation and updates are per-user and do not need administrator rights. To update, extract a newer package and run its `kiro-pet.exe install` command. A graphical installer and automatic update checks are not available yet.
 
-Kiro Agent Pet still uses the `kiro-pet` command and `KiroPet` data folder to preserve existing installations. The repository and current release filenames still use `kiroling`.
+Kiro Agent Pet uses the `kiro-pet` command and `KiroPet` data folder to preserve existing installations. The IDE bridge keeps its original extension ID so existing Kiro connections continue to work.
 
 ## Use it
 
@@ -52,7 +52,7 @@ Phrases are chosen locally when a status or interaction changes, avoiding immedi
 
 ### Open IDE chats
 
-On Windows, Kiroling checks its bundled Kiro helper automatically at startup. It installs a missing helper or updates an older version, and leaves an equal or newer version alone. If the helper changes while Kiro is open, Kiroling asks you to reload those IDE windows using **Ctrl+Shift+P → Developer: Reload Window**. Pet updates that do not change the helper require no helper reinstall. Setup runs in the background; **Connection health…** shows its progress or errors. Restart Kiroling to retry a failed setup or after installing Kiro IDE.
+On Windows, Kiro Agent Pet checks its bundled Kiro helper automatically at startup. It installs a missing helper or updates an older version, and leaves an equal or newer version alone. If the helper changes while Kiro is open, Kiro Agent Pet asks you to reload those IDE windows using **Ctrl+Shift+P → Developer: Reload Window**. Pet updates that do not change the helper require no helper reinstall. Setup runs in the background; **Connection health…** shows its progress or errors. Restart Kiro Agent Pet to retry a failed setup or after installing Kiro IDE.
 
 On the first chat-opening request, Kiro asks whether the bridge may open the link. Choose **Open**; select **Do not ask me again for this extension** for subsequent pet clicks to open directly.
 
@@ -76,13 +76,13 @@ The picker shows native chat titles and retains checked results. Old completed c
 
 ### Open CLI terminals on Windows
 
-CLI opening supports regular console windows and Windows Terminal tabs containing one terminal pane. Kiroling matches the native session lease to its process and verifies the selected pane or tab. If Kiro's backend has no console window, Kiroling follows its process chain to the visible terminal. It restores minimized windows. Windows Terminal tab selection briefly changes the console title to a unique marker and restores the original title afterward.
+CLI opening supports regular console windows and Windows Terminal tabs containing one terminal pane. Kiro Agent Pet matches the native session lease to its process and verifies the selected pane or tab. If Kiro's backend has no console window, Kiro Agent Pet follows its process chain to the visible terminal. It restores minimized windows. Windows Terminal tab selection briefly changes the console title to a unique marker and restores the original title afterward.
 
 Closed CLI chats reopen in a standalone console with `kiro-cli chat --resume-id` in their saved workspace, without sending a prompt. Kiro's usual workspace trust checks still apply.
 
-Herdr-hosted CLI agents are excluded from Kiroling's alerts, click cycling, and session picker. Host markers are cached so identified Herdr sessions remain excluded after they close or Kiroling restarts. Kiro's saved chats remain untouched.
+Herdr-hosted CLI agents are excluded from Kiro Agent Pet's alerts, click cycling, and session picker. Host markers are cached so identified Herdr sessions remain excluded after they close or Kiro Agent Pet restarts. Kiro's saved chats remain untouched.
 
-Windows Terminal split panes, fixed tab titles that suppress application titles, consoles shared by multiple live CLI chats, and IDE-integrated terminals are not yet supported. Those results stay unread when Kiroling cannot verify their target. Manually focusing a CLI terminal does not automatically check its result.
+Windows Terminal split panes, fixed tab titles that suppress application titles, consoles shared by multiple live CLI chats, and IDE-integrated terminals are not yet supported. Those results stay unread when Kiro Agent Pet cannot verify their target. Manually focusing a CLI terminal does not automatically check its result.
 
 ## Characters and animation
 
@@ -123,4 +123,4 @@ The [architecture notes](docs/architecture.md) explain ownership of session stat
 
 ## License
 
-Kiroling's code and original Spark artwork use the [MIT license](LICENSE). Imported artwork keeps its original license. See [third-party notices](THIRD-PARTY.md).
+Kiro Agent Pet's code and original Spark artwork use the [MIT license](LICENSE). Imported artwork keeps its original license. See [third-party notices](THIRD-PARTY.md).

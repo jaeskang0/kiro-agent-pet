@@ -47,7 +47,7 @@ async function waitForChat(sessionId: SessionId, agentPid: AgentPid): Promise<bo
 
 export function activate(context: vscode.ExtensionContext): void {
   const root = dataRoot(process.platform, process.env);
-  const output = vscode.window.createOutputChannel("Kiroling");
+  const output = vscode.window.createOutputChannel("Kiro Agent Pet");
   let lastViewed = "";
   let reading = false;
   let publishing = false;

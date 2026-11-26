@@ -217,7 +217,7 @@ public static class PetCommands
 {
     public static async Task<string> Send(string command, string value = null)
     {
-        if (PetStore.Running() == null) throw new InvalidOperationException("Kiroling is not running. Use kiro-pet start.");
+        if (PetStore.Running() == null) throw new InvalidOperationException("Kiro Agent Pet is not running. Use kiro-pet start.");
         string id = Guid.NewGuid().ToString("N");
         string directory = PetPaths.InData("commands");
         string replyFile = Path.Combine(directory, id + ".reply");
@@ -234,6 +234,6 @@ public static class PetCommands
             }
             await Task.Delay(100);
         }
-        throw new TimeoutException("Kiroling did not answer within ten seconds.");
+        throw new TimeoutException("Kiro Agent Pet did not answer within ten seconds.");
     }
 }

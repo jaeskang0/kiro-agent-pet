@@ -16,7 +16,7 @@ public static class CliNavigator
     public static async Task<CliOpenResult> Open(NativeSession session)
     {
         if (session?.Source != "cli") return new(false, "This is not a Kiro CLI session.");
-        if (session.Host == CliHost.Herdr) return new(false, "Herdr-hosted sessions are excluded from Kiroling.");
+        if (session.Host == CliHost.Herdr) return new(false, "Herdr-hosted sessions are excluded from Kiro Agent Pet.");
         if (!OperatingSystem.IsWindows()) return new(false, "CLI terminal opening currently supports Windows only.");
         if (!Regex.IsMatch(session.SessionId ?? "", "^sess_[a-zA-Z0-9-]{1,80}$"))
             return new(false, "The CLI session ID is invalid.");
@@ -38,7 +38,7 @@ public static class CliNavigator
             return new(false, "This CLI session's process changed. Refresh its session row and try again.");
         var chain = ProcessAncestry.Read(owner.Pid);
         if (ProcessAncestry.IsHerdr(chain))
-            return new(false, "Herdr-hosted sessions are excluded from Kiroling.");
+            return new(false, "Herdr-hosted sessions are excluded from Kiro Agent Pet.");
         return OpenConsole(session.SessionId, owner, chain);
     }
 
@@ -125,7 +125,7 @@ public static class CliNavigator
                 var title = new StringBuilder(32768);
                 GetConsoleTitle(title, (uint)title.Capacity);
                 string originalTitle = title.ToString();
-                string marker = "Kiroling-" + Guid.NewGuid().ToString("N");
+                string marker = "KiroAgentPet-" + Guid.NewGuid().ToString("N");
                 if (!SetConsoleTitle(marker)) continue;
                 try
                 {
